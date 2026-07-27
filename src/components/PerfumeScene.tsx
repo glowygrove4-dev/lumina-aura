@@ -1,6 +1,6 @@
 import { Suspense, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, Environment, ContactShadows, Float } from "@react-three/drei";
+import { useGLTF, ContactShadows, Float } from "@react-three/drei";
 import type { Group } from "three";
 import perfumeAsset from "@/assets/perfume.glb.asset.json";
 
