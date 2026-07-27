@@ -1,6 +1,6 @@
 import { Suspense, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, Environment, ContactShadows, Float } from "@react-three/drei";
+import { useGLTF, ContactShadows, Float } from "@react-three/drei";
 import type { Group } from "three";
 import perfumeAsset from "@/assets/perfume.glb.asset.json";
 
@@ -39,15 +39,15 @@ export function PerfumeScene({ scrollY }: { scrollY?: React.MutableRefObject<num
       shadows
     >
       <color attach="background" args={["#00000000"]} />
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[4, 6, 4]} intensity={1.4} castShadow />
-      <directionalLight position={[-4, 3, -2]} intensity={0.6} color="#a0c8ff" />
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[4, 6, 4]} intensity={1.6} castShadow />
+      <directionalLight position={[-4, 3, -2]} intensity={0.8} color="#a0c8ff" />
+      <pointLight position={[0, 2, 3]} intensity={1.2} color="#ffd9a0" />
       <Suspense fallback={null}>
         <Float speed={1.2} rotationIntensity={0.15} floatIntensity={0.4}>
           <Bottle scrollY={scrollY} />
         </Float>
         <ContactShadows position={[0, -1.4, 0]} opacity={0.6} scale={8} blur={2.6} far={4} />
-        <Environment preset="studio" />
       </Suspense>
     </Canvas>
   );
