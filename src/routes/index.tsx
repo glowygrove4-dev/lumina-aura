@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -11,7 +11,9 @@ import { Particles } from "@/components/Particles";
 import heroVideo from "@/assets/hero.mp4.asset.json";
 import perfumeImg from "@/assets/perfume.png.asset.json";
 
-const PerfumeScene = lazy(() => import("@/components/PerfumeScene").then((m) => ({ default: m.PerfumeScene })));
+const BottleJourney = lazy(() =>
+  import("@/components/BottleJourney").then((m) => ({ default: m.BottleJourney })),
+);
 
 export const Route = createFileRoute("/")({
   head: () => ({
