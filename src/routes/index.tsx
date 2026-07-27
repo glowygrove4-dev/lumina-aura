@@ -35,6 +35,9 @@ function Page() {
       <Loader />
       <Cursor />
       <ThemeSwitcher />
+      <Suspense fallback={null}>
+        <BottleJourney />
+      </Suspense>
       <SmoothScroll>
         <Nav />
         <Hero />
@@ -149,7 +152,15 @@ function BottleCard({ name, num, note, featured = false }: { name: string; num: 
   return (
     <div className="flex flex-col items-center text-center">
       <div className="relative flex h-72 w-full items-center justify-center">
-        <img src={perfumeImg.url} alt={name} className="max-h-full object-contain drop-shadow-[0_30px_40px_rgba(0,0,0,0.5)]" style={{ filter: featured ? "drop-shadow(0 0 40px var(--glow))" : undefined }} />
+        <img
+          src={perfumeImg.url}
+          alt={name}
+          className="max-h-full object-contain drop-shadow-[0_30px_40px_rgba(0,0,0,0.5)] transition-opacity duration-300"
+          style={{
+            filter: featured ? "drop-shadow(0 0 40px var(--glow))" : undefined,
+            opacity: featured ? "calc(1 - var(--bottle-handoff, 0))" : 1,
+          }}
+        />
       </div>
       <div className="mt-6 text-[10px] uppercase tracking-[0.4em] text-muted-foreground">{num}</div>
       <div className="mt-2 font-display text-3xl">{name}</div>
@@ -175,36 +186,20 @@ function SectionLabel({ eyebrow, title }: { eyebrow: string; title: string }) {
 
 function Showcase() {
   const ref = useRef<HTMLDivElement>(null);
-  const scrollY = useRef(0);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const unsub = scrollYProgress.on("change", (v) => { scrollY.current = v - 0.5; });
-    return () => unsub();
-  }, [scrollYProgress]);
-
   const bgOpacity = useTransform(scrollYProgress, [0, 0.5, 1], [0, 1, 0]);
 
   return (
     <section id="story" ref={ref} className="relative h-[220vh]">
       <div className="sticky top-0 h-screen w-full overflow-hidden">
-        <motion.div style={{ opacity: bgOpacity }} className="absolute inset-0" >
+        <motion.div style={{ opacity: bgOpacity }} className="absolute inset-0">
           <Particles count={80} />
         </motion.div>
 
+        {/* Left half reserved for the flying 3D bottle (rendered by global BottleJourney) */}
         <div className="absolute inset-0 grid grid-cols-1 md:grid-cols-2">
-          <div className="flex items-center justify-center p-10">
-            <div className="h-[80vh] w-full max-w-lg">
-              {mounted && (
-                <Suspense fallback={<div className="h-full w-full animate-pulse rounded-lg bg-muted/20" />}>
-                  <PerfumeScene scrollY={scrollY} />
-                </Suspense>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center p-10 md:p-20">
+          <div />
+          <div className="relative z-40 flex items-center p-10 md:p-20">
             <motion.div
               initial={{ opacity: 0, y: 60 }}
               whileInView={{ opacity: 1, y: 0 }}
