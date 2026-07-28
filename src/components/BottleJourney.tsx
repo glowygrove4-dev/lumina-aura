@@ -94,7 +94,7 @@ function Bottle({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }
 
   return (
     <group ref={group} scale={baseScale}>
-      <group rotation={[0, -Math.PI / 2, 0]}>
+      <group rotation={[0, Math.PI, 0]}>
         <primitive object={scene} />
       </group>
     </group>
