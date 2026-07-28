@@ -7,116 +7,129 @@ import perfumeAsset from "@/assets/perfume.glb.asset.json";
 useGLTF.preload(perfumeAsset.url);
 
 /**
- * Journey progress model (t ∈ [0,1] mapped from document scroll between
- * the Trio section start and the Ingredients section end):
- *  0.00  bottle sits inside the featured trio card (screen center)
- *  0.08  lifts out, scales up, slight yaw
- *  0.22  swings down-left, behind text foreground
- *  0.42  arcs down-right toward the hand
- *  0.58  hand catch — motion damps, tiny settle
- *  0.68  lifts out of the hand
- *  0.85  arrives on the left of ingredients
- *  1.00  idle float on the left
+ * Cinematic camera-driven journey.
+ * The bottle stays anchored near origin with only a tiny idle float + micro-rotation.
+ * The CAMERA moves along a smooth Catmull-Rom path between per-section keyframes
+ * as the user scrolls the whole document. Inspired by Apple product films.
+ *
+ * Scroll t (0..1 over the full page) maps to camera keyframes:
+ *  0.00  Hero        — front, spotlight
+ *  0.22  Trio        — slight orbit right, dolly in
+ *  0.45  Showcase    — orbit left, low angle
+ *  0.70  Ingredients — side profile, dolly out, framed left
+ *  1.00  Final CTA   — pedestal front, slightly elevated
  */
-const WAYPOINTS: [number, number, number][] = [
-  [0.0, 0.0, 0.0],
-  [0.15, 0.55, 0.6],
-  [-1.7, -0.7, 0.4],
-  [-0.4, -1.5, 0.5],
-  [1.25, -0.55, 0.9], // hand catch
-  [1.15, -0.5, 0.9],  // dwell
-  [0.2, 0.5, 0.4],
-  [-1.85, 0.15, 0.15],
-  [-1.85, 0.15, 0.15],
+type CamKey = {
+  pos: [number, number, number];
+  look: [number, number, number];
+  fov: number;
+};
+
+const CAM_KEYS: CamKey[] = [
+  { pos: [0.0, 0.15, 3.6],  look: [0, 0, 0],     fov: 26 }, // hero
+  { pos: [0.9, 0.25, 3.2],  look: [0, 0.05, 0],  fov: 24 }, // trio
+  { pos: [-1.1, 0.05, 3.0], look: [0, 0.0, 0],   fov: 22 }, // showcase
+  { pos: [1.4, 0.35, 3.4],  look: [-0.15, 0, 0], fov: 25 }, // ingredients (bottle sits left in frame)
+  { pos: [0.0, 0.55, 3.0],  look: [0, -0.05, 0], fov: 22 }, // final cta pedestal
 ];
-const HAND_T = 0.58;
+const CAM_STOPS = [0.0, 0.22, 0.45, 0.7, 1.0];
 
-// Segment breakpoints (t on the curve) matching WAYPOINTS spacing
-const SEGMENTS = [0.0, 0.08, 0.22, 0.42, HAND_T, 0.66, 0.78, 0.92, 1.0];
+function easeInOut(x: number) {
+  return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+}
 
-function tOnCurve(scroll: number) {
-  // Map scroll (0..1 of journey window) to curve t using SEGMENTS as anchors
-  const idx = SEGMENTS.findIndex((s) => scroll <= s);
-  if (idx <= 0) return 0;
-  if (idx === -1) return 1;
-  const a = SEGMENTS[idx - 1];
-  const b = SEGMENTS[idx];
-  const local = (scroll - a) / (b - a);
-  // ease each segment
-  const eased = local < 0.5 ? 2 * local * local : 1 - Math.pow(-2 * local + 2, 2) / 2;
-  return ((idx - 1) + eased) / (WAYPOINTS.length - 1);
+function sampleCam(scroll: number): CamKey {
+  const s = Math.max(0, Math.min(1, scroll));
+  let i = 0;
+  for (; i < CAM_STOPS.length - 1; i++) {
+    if (s <= CAM_STOPS[i + 1]) break;
+  }
+  const a = CAM_KEYS[i];
+  const b = CAM_KEYS[Math.min(i + 1, CAM_KEYS.length - 1)];
+  const t = easeInOut((s - CAM_STOPS[i]) / (CAM_STOPS[i + 1] - CAM_STOPS[i] || 1));
+  const lerp3 = (u: [number, number, number], v: [number, number, number]): [number, number, number] => [
+    u[0] + (v[0] - u[0]) * t,
+    u[1] + (v[1] - u[1]) * t,
+    u[2] + (v[2] - u[2]) * t,
+  ];
+  return {
+    pos: lerp3(a.pos, b.pos),
+    look: lerp3(a.look, b.look),
+    fov: a.fov + (b.fov - a.fov) * t,
+  };
+}
+
+function Rig({ progressRef }: { progressRef: React.MutableRefObject<number> }) {
+  const { camera, size } = useThree();
+  const target = useMemo(() => new THREE.Vector3(), []);
+  const desiredPos = useMemo(() => new THREE.Vector3(), []);
+  const currentLook = useMemo(() => new THREE.Vector3(0, 0, 0), []);
+
+  useFrame((state) => {
+    const p = progressRef.current;
+    const key = sampleCam(p);
+    const time = state.clock.getElapsedTime();
+
+    // Base camera pose from scroll
+    desiredPos.set(key.pos[0], key.pos[1], key.pos[2]);
+
+    // Very gentle continuous orbit + breathing dolly — Apple-film cadence
+    const orbitAngle = time * 0.06;
+    desiredPos.x += Math.sin(orbitAngle) * 0.08;
+    desiredPos.y += Math.sin(time * 0.4) * 0.015;
+    desiredPos.z += Math.sin(time * 0.25) * 0.04;
+
+    camera.position.lerp(desiredPos, 0.04);
+
+    target.set(key.look[0], key.look[1], key.look[2]);
+    currentLook.lerp(target, 0.06);
+    camera.lookAt(currentLook);
+
+    // Responsive FOV: tighter on desktop, slightly wider on narrow screens
+    const isNarrow = size.width < 768;
+    const targetFov = key.fov + (isNarrow ? 6 : 0);
+    const cam = camera as THREE.PerspectiveCamera;
+    cam.fov += (targetFov - cam.fov) * 0.05;
+    cam.updateProjectionMatrix();
+  });
+
+  return null;
 }
 
 function Bottle({ progressRef }: { progressRef: React.MutableRefObject<number> }) {
   const group = useRef<THREE.Group>(null);
   const { scene } = useGLTF(perfumeAsset.url);
-  const { camera } = useThree();
+  const { size } = useThree();
 
-  const curve = useMemo(
-    () =>
-      new THREE.CatmullRomCurve3(
-        WAYPOINTS.map(([x, y, z]) => new THREE.Vector3(x, y, z)),
-        false,
-        "catmullrom",
-        0.35,
-      ),
-    [],
-  );
+  // Scale target: keep bottle ~28-32% of viewport height on desktop, ~35% on mobile.
+  // Model unit is arbitrary — tuned by eye at fov ~24 / dist ~3.2.
+  const baseScale = size.width < 768 ? 0.95 : 0.8;
 
-  const tmp = useMemo(() => new THREE.Vector3(), []);
-  const tmp2 = useMemo(() => new THREE.Vector3(), []);
-  const camTarget = useMemo(() => new THREE.Vector3(), []);
-
-  useFrame((state, delta) => {
+  useFrame((state) => {
     if (!group.current) return;
-    const p = Math.max(0, Math.min(1, progressRef.current));
-    const t = tOnCurve(p);
     const time = state.clock.getElapsedTime();
+    const p = progressRef.current;
 
-    curve.getPointAt(t, tmp);
-    curve.getPointAt(Math.min(1, t + 0.01), tmp2);
+    // Bottle stays anchored. Tiny idle breathing motion only.
+    const idleY = Math.sin(time * 0.7) * 0.015;   // ~2-3px on screen
+    const idleX = Math.cos(time * 0.5) * 0.006;
 
-    // idle float overlay (very small)
-    const idle = p > 0.95 ? 1 : 0;
-    const floatY = Math.sin(time * 0.9) * (0.02 + idle * 0.015);
-    const floatX = Math.cos(time * 0.7) * 0.008;
+    group.current.position.lerp(new THREE.Vector3(idleX, idleY, 0), 0.06);
 
-    // slowdown factor near the hand catch
-    const handProximity = 1 - Math.min(1, Math.abs(p - HAND_T) / 0.12);
-    const damp = 1 - handProximity * 0.75;
+    // Micro rotation: total range ~10°, extremely slow. Small scroll-linked yaw for storytelling.
+    const scrollYaw = (p - 0.5) * 0.18;                  // ±~5°
+    const idleYaw = Math.sin(time * 0.25) * 0.05;        // ~3° breathing
+    const idlePitch = Math.sin(time * 0.2) * 0.03;       // ~1.7°
+    group.current.rotation.y += (scrollYaw + idleYaw - group.current.rotation.y) * 0.03;
+    group.current.rotation.x += (idlePitch - group.current.rotation.x) * 0.03;
+    group.current.rotation.z += (Math.sin(time * 0.18) * 0.02 - group.current.rotation.z) * 0.03;
 
-    group.current.position.lerp(
-      tmp.clone().add(new THREE.Vector3(floatX, floatY, 0)),
-      0.12 * damp + 0.04,
-    );
-
-    // scale: small in card, larger during flight, calm at rest
-    const flightScale = 2.2 + Math.sin(Math.PI * Math.min(1, p / 0.9)) * 0.55;
-    const targetScale = p < 0.02 ? 2.2 : flightScale;
-    const s = THREE.MathUtils.lerp(group.current.scale.x, targetScale, 0.08);
+    const s = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
     group.current.scale.setScalar(s);
-
-    // rotation: subtle yaw/pitch/roll along path + idle spin
-    const dir = tmp2.clone().sub(tmp).normalize();
-    const yaw = Math.atan2(dir.x, 0.6) * 0.5 + time * (0.05 + idle * 0.02);
-    const pitch = Math.sin(time * 0.6) * 0.06 - dir.y * 0.25;
-    const roll = Math.sin(time * 0.4 + p * 6) * 0.08 * (1 - handProximity);
-    group.current.rotation.x = THREE.MathUtils.lerp(group.current.rotation.x, pitch, 0.08);
-    group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, yaw, 0.08);
-    group.current.rotation.z = THREE.MathUtils.lerp(group.current.rotation.z, roll, 0.08);
-
-    // camera: slight orbit tracking the bottle
-    const orbit = Math.sin(p * Math.PI * 1.4) * 0.35;
-    const camX = tmp.x * 0.25 + orbit;
-    const camY = tmp.y * 0.15 + 0.15;
-    const camZ = 4.6 - Math.sin(p * Math.PI) * 0.35;
-    camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.05);
-    camTarget.lerp(tmp, 0.08);
-    camera.lookAt(camTarget);
   });
 
   return (
-    <group ref={group}>
+    <group ref={group} scale={baseScale}>
       <primitive object={scene} />
     </group>
   );
@@ -124,105 +137,69 @@ function Bottle({ progressRef }: { progressRef: React.MutableRefObject<number> }
 
 export function BottleJourney() {
   const progressRef = useRef(0);
-  const [visible, setVisible] = useState(false);
-  const [handOpacity, setHandOpacity] = useState(0);
-  const [cardHandoff, setCardHandoff] = useState(0); // 0 = bottle in card, 1 = bottle flying
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     let raf = 0;
     const tick = () => {
-      const trio = document.getElementById("trio");
-      const end = document.getElementById("ingredients");
-      if (trio && end) {
-        const startY = trio.getBoundingClientRect().top + window.scrollY + trio.offsetHeight * 0.35;
-        const endY = end.getBoundingClientRect().top + window.scrollY + end.offsetHeight * 0.6;
-        const y = window.scrollY + window.innerHeight * 0.5;
-        const p = (y - startY) / (endY - startY);
-        const clamped = Math.max(0, Math.min(1, p));
-        progressRef.current = clamped;
-        setVisible(clamped > 0.001 && clamped < 0.999 ? true : clamped >= 0.999);
-        // Fade featured card image out as bottle lifts off
-        const handoff = Math.max(0, Math.min(1, (clamped - 0.0) / 0.08));
-        setCardHandoff(handoff);
-        document.documentElement.style.setProperty("--bottle-handoff", String(handoff));
-        // Hand visibility around the catch
-        const hp = 1 - Math.min(1, Math.abs(clamped - HAND_T) / 0.14);
-        setHandOpacity(hp);
-      }
+      const doc = document.documentElement;
+      const scrollable = doc.scrollHeight - window.innerHeight;
+      const p = scrollable > 0 ? window.scrollY / scrollable : 0;
+      progressRef.current = Math.max(0, Math.min(1, p));
+      // Fade the featured card image out shortly after leaving hero
+      const handoff = Math.max(0, Math.min(1, (progressRef.current - 0.12) / 0.06));
+      doc.style.setProperty("--bottle-handoff", String(handoff));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return (
-    <>
-      {/* Fixed canvas: sits above card layer, below high-priority foreground text (z-40) */}
-      <div
-        className="pointer-events-none fixed inset-0 z-30"
-        style={{ opacity: visible || cardHandoff > 0 ? 1 : 0, transition: "opacity 400ms" }}
-        aria-hidden
-      >
-        <Canvas
-          dpr={[1, 2]}
-          gl={{ antialias: true, alpha: true }}
-          camera={{ position: [0, 0.15, 4.6], fov: 28 }}
-          shadows
-        >
-          <ambientLight intensity={0.65} />
-          <directionalLight position={[4, 6, 4]} intensity={1.6} castShadow />
-          <directionalLight position={[-4, 3, -2]} intensity={0.75} color="#a0c8ff" />
-          <pointLight position={[0, 2, 3]} intensity={1.1} color="#ffd9a0" />
-          <Suspense fallback={null}>
-            <Bottle progressRef={progressRef} />
-            <ContactShadows position={[0, -1.6, 0]} opacity={0.35} scale={10} blur={3.2} far={5} />
-          </Suspense>
-        </Canvas>
-      </div>
+  if (!mounted) return null;
 
-      {/* Stylized hand that receives the bottle */}
-      <div
-        className="pointer-events-none fixed inset-0 z-20 flex items-end justify-end"
-        style={{ opacity: handOpacity, transition: "opacity 500ms cubic-bezier(0.22,1,0.36,1)" }}
-        aria-hidden
+  return (
+    <div
+      className="pointer-events-none fixed inset-0 z-30"
+      aria-hidden
+      style={{ opacity: 1 }}
+    >
+      <Canvas
+        dpr={[1, 2]}
+        gl={{ antialias: true, alpha: true }}
+        camera={{ position: [0, 0.15, 3.6], fov: 26 }}
+        shadows
       >
-        <svg
-          viewBox="0 0 400 300"
-          className="h-[60vh] w-auto translate-x-[8%] translate-y-[10%]"
-          style={{
-            transform: `translate(${(1 - handOpacity) * 40}%, ${(1 - handOpacity) * 20}%)`,
-            transition: "transform 700ms cubic-bezier(0.22,1,0.36,1)",
-            filter: "drop-shadow(0 30px 60px rgba(0,0,0,0.5))",
-          }}
-        >
-          <defs>
-            <linearGradient id="skin" x1="0" x2="1" y1="0" y2="1">
-              <stop offset="0" stopColor="#efd3bd" />
-              <stop offset="0.5" stopColor="#d9b295" />
-              <stop offset="1" stopColor="#a5795c" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M40,260 C60,150 130,120 180,140 C210,152 230,175 245,205 C260,235 300,255 360,255 L400,300 L40,300 Z"
-            fill="url(#skin)"
+        {/* Cinematic three-point lighting */}
+        <ambientLight intensity={0.35} />
+        <directionalLight
+          position={[3.5, 5, 3]}
+          intensity={1.8}
+          color="#fff2dc"
+          castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+        />
+        {/* Warm rim */}
+        <directionalLight position={[-4, 2, -3]} intensity={1.1} color="#ffb37a" />
+        {/* Cool fill */}
+        <directionalLight position={[-2, 1.5, 4]} intensity={0.5} color="#9ac4ff" />
+        {/* Key highlight kicker */}
+        <pointLight position={[0, 2.4, 2]} intensity={0.7} color="#ffe8c2" />
+
+        <Suspense fallback={null}>
+          <Bottle progressRef={progressRef} />
+          <ContactShadows
+            position={[0, -0.85, 0]}
+            opacity={0.5}
+            scale={5}
+            blur={2.6}
+            far={2}
+            resolution={512}
           />
-          <path
-            d="M180,140 C185,110 200,95 218,100 C232,104 236,125 228,150"
-            fill="url(#skin)"
-            opacity="0.9"
-          />
-          <path
-            d="M210,145 C215,115 232,102 250,110 C264,117 262,140 252,160"
-            fill="url(#skin)"
-            opacity="0.85"
-          />
-          <path
-            d="M238,160 C244,135 262,128 276,138 C288,148 282,168 272,182"
-            fill="url(#skin)"
-            opacity="0.8"
-          />
-        </svg>
-      </div>
-    </>
+        </Suspense>
+        <Rig progressRef={progressRef} />
+      </Canvas>
+    </div>
   );
 }
