@@ -7,125 +7,89 @@ import perfumeAsset from "@/assets/perfume.glb.asset.json";
 useGLTF.preload(perfumeAsset.url);
 
 /**
- * Cinematic camera-driven journey.
- * The bottle stays anchored near origin with only a tiny idle float + micro-rotation.
- * The CAMERA moves along a smooth Catmull-Rom path between per-section keyframes
- * as the user scrolls the whole document. Inspired by Apple product films.
- *
- * Scroll t (0..1 over the full page) maps to camera keyframes:
- *  0.00  Hero        — front, spotlight
- *  0.22  Trio        — slight orbit right, dolly in
- *  0.45  Showcase    — orbit left, low angle
- *  0.70  Ingredients — side profile, dolly out, framed left
- *  1.00  Final CTA   — pedestal front, slightly elevated
+ * Scroll-driven bottle journey — Trio → Showcase → Ingredients only.
+ * The bottle is completely hidden until the Trio section reaches 40% of the
+ * viewport. It emerges from the featured card's exact screen position, then
+ * travels along an eased path to Showcase and finally to Ingredients, where
+ * it comes to rest. Camera does most of the movement; bottle scale is fixed
+ * and stays well under 30% of viewport height on desktop.
  */
-type CamKey = {
-  pos: [number, number, number];
-  look: [number, number, number];
-  fov: number;
-};
 
-const CAM_KEYS: CamKey[] = [
-  { pos: [0.0, 0.15, 3.6],  look: [0, 0, 0],     fov: 26 }, // hero
-  { pos: [0.9, 0.25, 3.2],  look: [0, 0.05, 0],  fov: 24 }, // trio
-  { pos: [-1.1, 0.05, 3.0], look: [0, 0.0, 0],   fov: 22 }, // showcase
-  { pos: [1.4, 0.35, 3.4],  look: [-0.15, 0, 0], fov: 25 }, // ingredients (bottle sits left in frame)
-  { pos: [0.0, 0.55, 3.0],  look: [0, -0.05, 0], fov: 22 }, // final cta pedestal
-];
-const CAM_STOPS = [0.0, 0.22, 0.45, 0.7, 1.0];
+type JourneyState = {
+  p: number;           // 0..1 across trio-start → ingredients-end
+  cardX: number;       // featured card center — screen px
+  cardY: number;
+  hasCard: boolean;
+};
 
 function easeInOut(x: number) {
   return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
 }
 
-function sampleCam(scroll: number): CamKey {
-  const s = Math.max(0, Math.min(1, scroll));
-  let i = 0;
-  for (; i < CAM_STOPS.length - 1; i++) {
-    if (s <= CAM_STOPS[i + 1]) break;
-  }
-  const a = CAM_KEYS[i];
-  const b = CAM_KEYS[Math.min(i + 1, CAM_KEYS.length - 1)];
-  const t = easeInOut((s - CAM_STOPS[i]) / (CAM_STOPS[i + 1] - CAM_STOPS[i] || 1));
-  const lerp3 = (u: [number, number, number], v: [number, number, number]): [number, number, number] => [
-    u[0] + (v[0] - u[0]) * t,
-    u[1] + (v[1] - u[1]) * t,
-    u[2] + (v[2] - u[2]) * t,
-  ];
-  return {
-    pos: lerp3(a.pos, b.pos),
-    look: lerp3(a.look, b.look),
-    fov: a.fov + (b.fov - a.fov) * t,
-  };
-}
-
-function Rig({ progressRef }: { progressRef: React.MutableRefObject<number> }) {
-  const { camera, size } = useThree();
-  const target = useMemo(() => new THREE.Vector3(), []);
-  const desiredPos = useMemo(() => new THREE.Vector3(), []);
-  const currentLook = useMemo(() => new THREE.Vector3(0, 0, 0), []);
-
-  useFrame((state) => {
-    const p = progressRef.current;
-    const key = sampleCam(p);
-    const time = state.clock.getElapsedTime();
-
-    // Base camera pose from scroll
-    desiredPos.set(key.pos[0], key.pos[1], key.pos[2]);
-
-    // Very gentle continuous orbit + breathing dolly — Apple-film cadence
-    const orbitAngle = time * 0.06;
-    desiredPos.x += Math.sin(orbitAngle) * 0.08;
-    desiredPos.y += Math.sin(time * 0.4) * 0.015;
-    desiredPos.z += Math.sin(time * 0.25) * 0.04;
-
-    camera.position.lerp(desiredPos, 0.04);
-
-    target.set(key.look[0], key.look[1], key.look[2]);
-    currentLook.lerp(target, 0.06);
-    camera.lookAt(currentLook);
-
-    // Responsive FOV: tighter on desktop, slightly wider on narrow screens
-    const isNarrow = size.width < 768;
-    const targetFov = key.fov + (isNarrow ? 6 : 0);
-    const cam = camera as THREE.PerspectiveCamera;
-    cam.fov += (targetFov - cam.fov) * 0.05;
-    cam.updateProjectionMatrix();
-  });
-
-  return null;
-}
-
-function Bottle({ progressRef }: { progressRef: React.MutableRefObject<number> }) {
+function Bottle({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }) {
   const group = useRef<THREE.Group>(null);
   const { scene } = useGLTF(perfumeAsset.url);
-  const { size } = useThree();
+  const { camera, size } = useThree();
 
-  // Scale target: keep bottle ~28-32% of viewport height on desktop, ~35% on mobile.
-  // Model unit is arbitrary — tuned by eye at fov ~24 / dist ~3.2.
-  const baseScale = size.width < 768 ? 0.95 : 0.8;
+  // Fixed premium scale — keeps bottle roughly 25–28% of viewport height.
+  const baseScale = size.width < 768 ? 0.65 : 0.5;
+
+  const ndc = useMemo(() => new THREE.Vector3(), []);
+  const cardWorld = useMemo(() => new THREE.Vector3(), []);
+  const emergePos = useMemo(() => new THREE.Vector3(), []);
+  const target = useMemo(() => new THREE.Vector3(), []);
+  const showcasePos = useMemo(() => new THREE.Vector3(-0.55, 0.05, 0), []);
+  const ingredientsPos = useMemo(() => new THREE.Vector3(-0.8, -0.05, 0), []);
+  const emergeCaptured = useRef(false);
 
   useFrame((state) => {
     if (!group.current) return;
+    const s = stateRef.current;
     const time = state.clock.getElapsedTime();
-    const p = progressRef.current;
+    const p = s.p;
 
-    // Bottle stays anchored. Tiny idle breathing motion only.
-    const idleY = Math.sin(time * 0.7) * 0.015;   // ~2-3px on screen
-    const idleX = Math.cos(time * 0.5) * 0.006;
+    // Unproject the featured card's screen position to the z=0 world plane.
+    if (s.hasCard) {
+      const ndcX = (s.cardX / size.width) * 2 - 1;
+      const ndcY = -(s.cardY / size.height) * 2 + 1;
+      ndc.set(ndcX, ndcY, 0.5).unproject(camera);
+      ndc.sub(camera.position).normalize();
+      const dist = -camera.position.z / ndc.z;
+      cardWorld.copy(camera.position).add(ndc.multiplyScalar(dist));
+    }
 
-    group.current.position.lerp(new THREE.Vector3(idleX, idleY, 0), 0.06);
+    // While still emerging, keep emergePos tracking the live card.
+    // Once we cross into the travel phase, freeze it as the path origin.
+    if (p <= 0.15 || !emergeCaptured.current) {
+      emergePos.copy(cardWorld);
+      if (p > 0.15) emergeCaptured.current = true;
+    }
 
-    // Micro rotation: total range ~10°, extremely slow. Small scroll-linked yaw for storytelling.
-    const scrollYaw = (p - 0.5) * 0.18;                  // ±~5°
-    const idleYaw = Math.sin(time * 0.25) * 0.05;        // ~3° breathing
-    const idlePitch = Math.sin(time * 0.2) * 0.03;       // ~1.7°
-    group.current.rotation.y += (scrollYaw + idleYaw - group.current.rotation.y) * 0.03;
+    if (p <= 0.15) {
+      // Emerge from card — bottle sits exactly on the featured card center.
+      target.copy(cardWorld);
+    } else if (p <= 0.55) {
+      const t = easeInOut((p - 0.15) / 0.4);
+      target.lerpVectors(emergePos, showcasePos, t);
+    } else {
+      const t = easeInOut((p - 0.55) / 0.45);
+      target.lerpVectors(showcasePos, ingredientsPos, t);
+    }
+
+    // Micro idle — 2–3 px on screen.
+    target.x += Math.cos(time * 0.5) * 0.006;
+    target.y += Math.sin(time * 0.7) * 0.012;
+
+    group.current.position.lerp(target, 0.08);
+
+    // Slow, purposeful rotation — no random drift.
+    const idleYaw = Math.sin(time * 0.22) * 0.06;
+    const idlePitch = Math.sin(time * 0.18) * 0.025;
+    group.current.rotation.y += (idleYaw - group.current.rotation.y) * 0.03;
     group.current.rotation.x += (idlePitch - group.current.rotation.x) * 0.03;
-    group.current.rotation.z += (Math.sin(time * 0.18) * 0.02 - group.current.rotation.z) * 0.03;
 
-    const s = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
-    group.current.scale.setScalar(s);
+    const scl = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
+    group.current.scale.setScalar(scl);
   });
 
   return (
@@ -135,21 +99,105 @@ function Bottle({ progressRef }: { progressRef: React.MutableRefObject<number> }
   );
 }
 
+function Rig({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }) {
+  const { camera, size } = useThree();
+  const desired = useMemo(() => new THREE.Vector3(), []);
+
+  // Camera keyframes — camera does most of the work.
+  const k0 = useMemo(() => new THREE.Vector3(0.0, 0.15, 3.8), []); // emerge
+  const k1 = useMemo(() => new THREE.Vector3(0.55, 0.2, 4.2), []); // showcase
+  const k2 = useMemo(() => new THREE.Vector3(0.35, 0.35, 4.6), []); // ingredients
+
+  useFrame((st) => {
+    const p = stateRef.current.p;
+    const time = st.clock.getElapsedTime();
+
+    let fovTarget = 24;
+    if (p <= 0.15) {
+      desired.copy(k0);
+      fovTarget = 24;
+    } else if (p <= 0.55) {
+      const t = easeInOut((p - 0.15) / 0.4);
+      desired.lerpVectors(k0, k1, t);
+      fovTarget = 24 + (21 - 24) * t;
+    } else {
+      const t = easeInOut((p - 0.55) / 0.45);
+      desired.lerpVectors(k1, k2, t);
+      fovTarget = 21 + (19 - 21) * t;
+    }
+
+    // Gentle continuous breathing — cinematic, never random.
+    desired.x += Math.sin(time * 0.08) * 0.05;
+    desired.y += Math.sin(time * 0.3) * 0.01;
+
+    camera.position.lerp(desired, 0.05);
+    camera.lookAt(0, 0, 0);
+
+    const cam = camera as THREE.PerspectiveCamera;
+    const fov = fovTarget + (size.width < 768 ? 6 : 0);
+    cam.fov += (fov - cam.fov) * 0.05;
+    cam.updateProjectionMatrix();
+  });
+
+  return null;
+}
+
 export function BottleJourney() {
-  const progressRef = useRef(0);
+  const stateRef = useRef<JourneyState>({ p: 0, cardX: 0, cardY: 0, hasCard: false });
   const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     let raf = 0;
+    let currentlyVisible = false;
+
     const tick = () => {
-      const doc = document.documentElement;
-      const scrollable = doc.scrollHeight - window.innerHeight;
-      const p = scrollable > 0 ? window.scrollY / scrollable : 0;
-      progressRef.current = Math.max(0, Math.min(1, p));
-      // Fade the featured card image out shortly after leaving hero
-      const handoff = Math.max(0, Math.min(1, (progressRef.current - 0.12) / 0.06));
-      doc.style.setProperty("--bottle-handoff", String(handoff));
+      const trio = document.getElementById("trio");
+      const ing = document.getElementById("ingredients");
+      const vh = window.innerHeight;
+
+      if (trio && ing) {
+        const trioRect = trio.getBoundingClientRect();
+        const ingRect = ing.getBoundingClientRect();
+
+        // Journey starts when Trio's top crosses 40% of the viewport.
+        // Journey ends when Ingredients' bottom reaches 60% of the viewport.
+        const startDelta = vh * 0.4 - trioRect.top;
+        const totalRange = ingRect.bottom - vh * 0.6 - (trioRect.top - vh * 0.4);
+        const raw = totalRange > 0 ? startDelta / totalRange : 0;
+        const clamped = Math.max(0, Math.min(1, raw));
+        stateRef.current.p = clamped;
+
+        // Visibility: strictly Trio → Ingredients. Never in Hero, never after.
+        const shouldShow = raw > 0 && raw < 1.01;
+        if (shouldShow !== currentlyVisible) {
+          currentlyVisible = shouldShow;
+          setVisible(shouldShow);
+        }
+
+        // Card image handoff — the featured card's <img> fades as the real
+        // 3D bottle emerges, so the switchover is invisible.
+        const handoff = Math.max(0, Math.min(1, clamped / 0.08));
+        document.documentElement.style.setProperty("--bottle-handoff", String(handoff));
+
+        // Featured card screen position — anchor for the emerge phase.
+        const cardImg = document.querySelector(
+          'img[alt="Riya Sheikh"]',
+        ) as HTMLImageElement | null;
+        if (cardImg) {
+          const r = cardImg.getBoundingClientRect();
+          stateRef.current.cardX = r.left + r.width / 2;
+          stateRef.current.cardY = r.top + r.height / 2;
+          stateRef.current.hasCard = true;
+        }
+      } else {
+        if (currentlyVisible) {
+          currentlyVisible = false;
+          setVisible(false);
+        }
+      }
+
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -160,17 +208,16 @@ export function BottleJourney() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-30"
+      className="pointer-events-none fixed inset-0 z-30 transition-opacity duration-700"
       aria-hidden
-      style={{ opacity: 1 }}
+      style={{ opacity: visible ? 1 : 0 }}
     >
       <Canvas
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true }}
-        camera={{ position: [0, 0.15, 3.6], fov: 26 }}
+        camera={{ position: [0, 0.15, 3.8], fov: 24 }}
         shadows
       >
-        {/* Cinematic three-point lighting */}
         <ambientLight intensity={0.35} />
         <directionalLight
           position={[3.5, 5, 3]}
@@ -180,15 +227,12 @@ export function BottleJourney() {
           shadow-mapSize-width={1024}
           shadow-mapSize-height={1024}
         />
-        {/* Warm rim */}
         <directionalLight position={[-4, 2, -3]} intensity={1.1} color="#ffb37a" />
-        {/* Cool fill */}
         <directionalLight position={[-2, 1.5, 4]} intensity={0.5} color="#9ac4ff" />
-        {/* Key highlight kicker */}
         <pointLight position={[0, 2.4, 2]} intensity={0.7} color="#ffe8c2" />
 
         <Suspense fallback={null}>
-          <Bottle progressRef={progressRef} />
+          <Bottle stateRef={stateRef} />
           <ContactShadows
             position={[0, -0.85, 0]}
             opacity={0.5}
@@ -198,7 +242,7 @@ export function BottleJourney() {
             resolution={512}
           />
         </Suspense>
-        <Rig progressRef={progressRef} />
+        <Rig stateRef={stateRef} />
       </Canvas>
     </div>
   );
