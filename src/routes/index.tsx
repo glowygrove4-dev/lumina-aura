@@ -53,9 +53,9 @@ function Page() {
 
 function Nav() {
   return (
-    <header className="fixed left-0 top-0 z-40 flex w-full items-center justify-between px-8 py-6 md:px-14">
-      <div className="text-[11px] uppercase tracking-[0.4em]">Maison Sheikh</div>
-      <nav className="hidden gap-10 text-[11px] uppercase tracking-[0.3em] md:flex">
+    <header className="fixed left-0 top-0 z-40 flex w-full items-center justify-between px-5 py-5 sm:px-8 sm:py-6 md:px-14">
+      <div className="text-[10px] uppercase tracking-[0.3em] sm:text-[11px] sm:tracking-[0.4em]">Maison Sheikh</div>
+      <nav className="hidden gap-6 text-[11px] uppercase tracking-[0.3em] sm:flex md:gap-10">
         <a href="#trio" className="opacity-70 transition hover:opacity-100">Collection</a>
         <a href="#story" className="opacity-70 transition hover:opacity-100">Craft</a>
         <a href="#ingredients" className="opacity-70 transition hover:opacity-100">Notes</a>
@@ -97,7 +97,7 @@ function Hero() {
         <motion.h1
           initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.4, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="text-balance mt-6 max-w-4xl font-display text-6xl leading-[0.95] md:text-[9rem]"
+          className="text-balance mt-6 max-w-4xl font-display text-5xl leading-[0.95] sm:text-6xl md:text-[9rem]"
         >
           Riya <em className="italic opacity-80">Sheikh</em>
         </motion.h1>
@@ -127,10 +127,10 @@ function Trio() {
     { name: "Cuir Nocturne", num: "№003", note: "Leather · Smoke" },
   ];
   return (
-    <section id="trio" className="relative px-6 py-40 md:px-16">
+    <section id="trio" className="relative px-5 py-24 sm:px-6 sm:py-32 md:px-16 md:py-40">
       <div className="mx-auto max-w-6xl">
         <SectionLabel eyebrow="La Trilogie" title="Three chapters, one obsession." />
-        <div className="mt-20 grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-8 sm:mt-20 md:grid-cols-3">
           <TiltCard>
             <BottleCard name={others[0].name} num={others[0].num} note={others[0].note} />
           </TiltCard>
@@ -179,7 +179,7 @@ function SectionLabel({ eyebrow, title }: { eyebrow: string; title: string }) {
     <div className="flex flex-col items-center text-center">
       <div className="text-[10px] uppercase tracking-[0.5em] text-accent">{eyebrow}</div>
       <div className="mt-4 h-px w-20 bg-accent opacity-50" />
-      <h2 className="text-balance mt-8 max-w-3xl font-display text-5xl leading-tight md:text-7xl">{title}</h2>
+      <h2 className="text-balance mt-8 max-w-3xl font-display text-4xl leading-tight sm:text-5xl md:text-7xl">{title}</h2>
     </div>
   );
 }
@@ -199,7 +199,7 @@ function Showcase() {
         {/* Left half reserved for the flying 3D bottle (rendered by global BottleJourney) */}
         <div className="absolute inset-0 grid grid-cols-1 md:grid-cols-2">
           <div />
-          <div className="relative z-40 flex items-center p-10 md:p-20">
+          <div className="relative z-40 flex items-center p-6 sm:p-10 md:p-20">
             <motion.div
               initial={{ opacity: 0, y: 60 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -208,7 +208,7 @@ function Showcase() {
               className="max-w-md"
             >
               <div className="text-[10px] uppercase tracking-[0.5em] text-accent">The Object</div>
-              <h2 className="mt-6 font-display text-5xl leading-tight md:text-6xl">
+              <h2 className="mt-6 font-display text-4xl leading-tight sm:text-5xl md:text-6xl">
                 Hand-cut in Grasse. Silent as ink.
               </h2>
               <p className="mt-8 text-sm leading-relaxed text-muted-foreground">
@@ -241,10 +241,10 @@ const NOTES = [
 
 function Ingredients() {
   return (
-    <section id="ingredients" className="relative px-6 py-40 md:px-16">
+    <section id="ingredients" className="relative px-5 py-24 sm:px-6 sm:py-32 md:px-16 md:py-40">
       <div className="mx-auto max-w-6xl">
         <SectionLabel eyebrow="Composition" title="Six notes. One long silence." />
-        <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-6 sm:mt-20 sm:grid-cols-2 lg:grid-cols-3">
           {NOTES.map((n, i) => (
             <motion.div
               key={n.name}
@@ -271,7 +271,7 @@ function Ingredients() {
 
 function FinalCTA() {
   return (
-    <section className="relative overflow-hidden px-6 py-40 md:py-56">
+    <section className="relative overflow-hidden px-5 py-28 sm:px-6 sm:py-40 md:py-56">
       <Particles count={60} />
       <div className="relative mx-auto max-w-4xl text-center">
         <motion.h2
@@ -279,7 +279,7 @@ function FinalCTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
-          className="text-balance font-display text-6xl leading-[0.95] md:text-[10rem]"
+          className="text-balance font-display text-5xl leading-[0.95] sm:text-6xl md:text-[10rem]"
         >
           Worn by <em className="italic">few.</em>
         </motion.h2>
@@ -288,7 +288,7 @@ function FinalCTA() {
         </p>
         <button
           data-magnetic
-          className="group relative mt-14 overflow-hidden border border-accent px-10 py-4 text-[11px] uppercase tracking-[0.4em] text-accent transition-all duration-500 hover:tracking-[0.5em]"
+          className="group relative mt-14 overflow-hidden border border-accent px-6 py-3 text-[10px] uppercase tracking-[0.3em] text-accent transition-all duration-500 hover:tracking-[0.4em] sm:px-10 sm:py-4 sm:text-[11px] sm:tracking-[0.4em] sm:hover:tracking-[0.5em]"
         >
           <span className="absolute inset-0 -translate-x-full bg-accent transition-transform duration-700 group-hover:translate-x-0" />
           <span className="relative transition-colors duration-500 group-hover:text-accent-foreground">Discover Collection</span>
@@ -300,10 +300,10 @@ function FinalCTA() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border px-6 py-16 md:px-16">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-8 md:flex-row">
-        <div className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">© Maison Sheikh — Paris · Grasse</div>
-        <div className="flex gap-6 text-[11px] uppercase tracking-[0.3em]">
+    <footer className="border-t border-border px-5 py-12 sm:px-6 sm:py-16 md:px-16">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 text-center sm:gap-8 md:flex-row md:text-left">
+        <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground sm:tracking-[0.4em]">© Maison Sheikh — Paris · Grasse</div>
+        <div className="flex flex-wrap justify-center gap-4 text-[11px] uppercase tracking-[0.3em] sm:gap-6">
           {["Instagram", "Journal", "Contact"].map((l) => (
             <a key={l} href="#" className="opacity-60 transition hover:opacity-100 hover:text-accent">{l}</a>
           ))}
