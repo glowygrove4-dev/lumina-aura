@@ -97,7 +97,7 @@ function Hero() {
         <motion.h1
           initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.4, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="text-balance mt-6 max-w-4xl font-display text-6xl leading-[0.95] md:text-[9rem]"
+          className="text-balance mt-6 max-w-4xl font-display text-5xl leading-[0.95] sm:text-6xl md:text-[9rem]"
         >
           Riya <em className="italic opacity-80">Sheikh</em>
         </motion.h1>
