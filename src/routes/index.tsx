@@ -127,10 +127,10 @@ function Trio() {
     { name: "Cuir Nocturne", num: "№003", note: "Leather · Smoke" },
   ];
   return (
-    <section id="trio" className="relative px-6 py-40 md:px-16">
+    <section id="trio" className="relative px-5 py-24 sm:px-6 sm:py-32 md:px-16 md:py-40">
       <div className="mx-auto max-w-6xl">
         <SectionLabel eyebrow="La Trilogie" title="Three chapters, one obsession." />
-        <div className="mt-20 grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-8 sm:mt-20 md:grid-cols-3">
           <TiltCard>
             <BottleCard name={others[0].name} num={others[0].num} note={others[0].note} />
           </TiltCard>
