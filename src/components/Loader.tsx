@@ -26,7 +26,7 @@ export function Loader() {
             className="text-[11px] uppercase tracking-[0.5em] text-muted-foreground"
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
           >
-            Maison Sheikh
+            Riya Sheikh
           </motion.div>
           <div className="mt-8 h-px w-64 overflow-hidden bg-border">
             <motion.div className="h-full bg-accent" animate={{ width: `${progress}%` }} transition={{ ease: "easeOut" }} />
