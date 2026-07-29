@@ -199,7 +199,7 @@ function Showcase() {
         {/* Left half reserved for the flying 3D bottle (rendered by global BottleJourney) */}
         <div className="absolute inset-0 grid grid-cols-1 md:grid-cols-2">
           <div />
-          <div className="relative z-40 flex items-center p-10 md:p-20">
+          <div className="relative z-40 flex items-center p-6 sm:p-10 md:p-20">
             <motion.div
               initial={{ opacity: 0, y: 60 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -208,7 +208,7 @@ function Showcase() {
               className="max-w-md"
             >
               <div className="text-[10px] uppercase tracking-[0.5em] text-accent">The Object</div>
-              <h2 className="mt-6 font-display text-5xl leading-tight md:text-6xl">
+              <h2 className="mt-6 font-display text-4xl leading-tight sm:text-5xl md:text-6xl">
                 Hand-cut in Grasse. Silent as ink.
               </h2>
               <p className="mt-8 text-sm leading-relaxed text-muted-foreground">
