@@ -33,7 +33,7 @@ function Bottle({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }
   const { camera, size } = useThree();
 
   // Fixed premium scale — keeps bottle roughly 22–28% of viewport height.
-  const baseScale = size.width < 768 ? 0.55 : 0.5;
+  const baseScale = size.width < 480 ? 0.32 : size.width < 768 ? 0.4 : 0.5;
 
   const ndc = useMemo(() => new THREE.Vector3(), []);
   const cardWorld = useMemo(() => new THREE.Vector3(), []);

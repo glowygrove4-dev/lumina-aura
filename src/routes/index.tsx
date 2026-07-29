@@ -54,7 +54,7 @@ function Page() {
 function Nav() {
   return (
     <header className="fixed left-0 top-0 z-40 flex w-full items-center justify-between px-5 py-5 sm:px-8 sm:py-6 md:px-14">
-      <div className="text-[10px] uppercase tracking-[0.3em] sm:text-[11px] sm:tracking-[0.4em]">Maison Sheikh</div>
+      <div className="text-[10px] uppercase tracking-[0.3em] sm:text-[11px] sm:tracking-[0.4em]">Riya Sheikh</div>
       <nav className="hidden gap-6 text-[11px] uppercase tracking-[0.3em] sm:flex md:gap-10">
         <a href="#trio" className="opacity-70 transition hover:opacity-100">Collection</a>
         <a href="#story" className="opacity-70 transition hover:opacity-100">Craft</a>
