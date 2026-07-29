@@ -241,10 +241,10 @@ const NOTES = [
 
 function Ingredients() {
   return (
-    <section id="ingredients" className="relative px-6 py-40 md:px-16">
+    <section id="ingredients" className="relative px-5 py-24 sm:px-6 sm:py-32 md:px-16 md:py-40">
       <div className="mx-auto max-w-6xl">
         <SectionLabel eyebrow="Composition" title="Six notes. One long silence." />
-        <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-6 sm:mt-20 sm:grid-cols-2 lg:grid-cols-3">
           {NOTES.map((n, i) => (
             <motion.div
               key={n.name}
