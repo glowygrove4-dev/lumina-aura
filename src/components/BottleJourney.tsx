@@ -28,27 +28,26 @@ function easeInOut(x: number) {
 
 function Bottle({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }) {
   const group = useRef<THREE.Group>(null);
+  const inner = useRef<THREE.Group>(null);
   const { scene } = useGLTF(perfumeAsset.url);
   const { camera, size } = useThree();
 
-  // Fixed premium scale — keeps bottle roughly 25–28% of viewport height.
-  const baseScale = size.width < 768 ? 0.65 : 0.5;
+  // Fixed premium scale — keeps bottle roughly 22–28% of viewport height.
+  const baseScale = size.width < 768 ? 0.55 : 0.5;
 
   const ndc = useMemo(() => new THREE.Vector3(), []);
   const cardWorld = useMemo(() => new THREE.Vector3(), []);
   const emergePos = useMemo(() => new THREE.Vector3(), []);
   const target = useMemo(() => new THREE.Vector3(), []);
   const showcasePos = useMemo(() => new THREE.Vector3(-0.55, 0.05, 0), []);
-  const ingredientsPos = useMemo(() => new THREE.Vector3(-0.8, -0.05, 0), []);
   const emergeCaptured = useRef(false);
 
   useFrame((state) => {
-    if (!group.current) return;
+    if (!group.current || !inner.current) return;
     const s = stateRef.current;
     const time = state.clock.getElapsedTime();
     const p = s.p;
 
-    // Unproject the featured card's screen position to the z=0 world plane.
     if (s.hasCard) {
       const ndcX = (s.cardX / size.width) * 2 - 1;
       const ndcY = -(s.cardY / size.height) * 2 + 1;
@@ -58,22 +57,18 @@ function Bottle({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }
       cardWorld.copy(camera.position).add(ndc.multiplyScalar(dist));
     }
 
-    // While still emerging, keep emergePos tracking the live card.
-    // Once we cross into the travel phase, freeze it as the path origin.
     if (p <= 0.15 || !emergeCaptured.current) {
       emergePos.copy(cardWorld);
       if (p > 0.15) emergeCaptured.current = true;
     }
 
+    // Emerge (0 → 0.15): sit on the card. Travel (0.15 → 1): ease to showcase.
+    let travelT = 0;
     if (p <= 0.15) {
-      // Emerge from card — bottle sits exactly on the featured card center.
       target.copy(cardWorld);
-    } else if (p <= 0.55) {
-      const t = easeInOut((p - 0.15) / 0.4);
-      target.lerpVectors(emergePos, showcasePos, t);
     } else {
-      const t = easeInOut((p - 0.55) / 0.45);
-      target.lerpVectors(showcasePos, ingredientsPos, t);
+      travelT = easeInOut((p - 0.15) / 0.85);
+      target.lerpVectors(emergePos, showcasePos, travelT);
     }
 
     // Micro idle — 2–3 px on screen.
@@ -82,11 +77,16 @@ function Bottle({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }
 
     group.current.position.lerp(target, 0.08);
 
-    // Slow, purposeful rotation — no random drift.
+    // Cinematic rotation while travelling — graceful full yaw with subtle
+    // pitch/roll for weight and inertia. Idle sway when at rest.
+    const travelYaw = travelT * Math.PI * 2;
+    const travelPitch = Math.sin(travelT * Math.PI) * 0.35;
+    const travelRoll = Math.sin(travelT * Math.PI) * 0.14;
     const idleYaw = Math.sin(time * 0.22) * 0.06;
     const idlePitch = Math.sin(time * 0.18) * 0.025;
-    group.current.rotation.y += (idleYaw - group.current.rotation.y) * 0.03;
-    group.current.rotation.x += (idlePitch - group.current.rotation.x) * 0.03;
+    inner.current.rotation.y += (travelYaw + idleYaw - inner.current.rotation.y) * 0.06;
+    inner.current.rotation.x += (travelPitch + idlePitch - inner.current.rotation.x) * 0.06;
+    inner.current.rotation.z += (travelRoll - inner.current.rotation.z) * 0.06;
 
     const scl = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
     group.current.scale.setScalar(scl);
@@ -94,8 +94,10 @@ function Bottle({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }
 
   return (
     <group ref={group} scale={baseScale}>
-      <group rotation={[0, Math.PI, 0]}>
-        <primitive object={scene} />
+      <group ref={inner}>
+        <group rotation={[0, Math.PI, 0]}>
+          <primitive object={scene} />
+        </group>
       </group>
     </group>
   );
