@@ -179,7 +179,7 @@ function SectionLabel({ eyebrow, title }: { eyebrow: string; title: string }) {
     <div className="flex flex-col items-center text-center">
       <div className="text-[10px] uppercase tracking-[0.5em] text-accent">{eyebrow}</div>
       <div className="mt-4 h-px w-20 bg-accent opacity-50" />
-      <h2 className="text-balance mt-8 max-w-3xl font-display text-5xl leading-tight md:text-7xl">{title}</h2>
+      <h2 className="text-balance mt-8 max-w-3xl font-display text-4xl leading-tight sm:text-5xl md:text-7xl">{title}</h2>
     </div>
   );
 }
