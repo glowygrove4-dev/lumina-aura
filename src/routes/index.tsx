@@ -300,10 +300,10 @@ function FinalCTA() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border px-6 py-16 md:px-16">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-8 md:flex-row">
-        <div className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">© Maison Sheikh — Paris · Grasse</div>
-        <div className="flex gap-6 text-[11px] uppercase tracking-[0.3em]">
+    <footer className="border-t border-border px-5 py-12 sm:px-6 sm:py-16 md:px-16">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 text-center sm:gap-8 md:flex-row md:text-left">
+        <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground sm:tracking-[0.4em]">© Maison Sheikh — Paris · Grasse</div>
+        <div className="flex flex-wrap justify-center gap-4 text-[11px] uppercase tracking-[0.3em] sm:gap-6">
           {["Instagram", "Journal", "Contact"].map((l) => (
             <a key={l} href="#" className="opacity-60 transition hover:opacity-100 hover:text-accent">{l}</a>
           ))}
