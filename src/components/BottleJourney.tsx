@@ -110,7 +110,6 @@ function Rig({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }) {
   // Camera keyframes — camera does most of the work.
   const k0 = useMemo(() => new THREE.Vector3(0.0, 0.15, 3.8), []); // emerge
   const k1 = useMemo(() => new THREE.Vector3(0.55, 0.2, 4.2), []); // showcase
-  const k2 = useMemo(() => new THREE.Vector3(0.35, 0.35, 4.6), []); // ingredients
 
   useFrame((st) => {
     const p = stateRef.current.p;
@@ -120,14 +119,10 @@ function Rig({ stateRef }: { stateRef: React.MutableRefObject<JourneyState> }) {
     if (p <= 0.15) {
       desired.copy(k0);
       fovTarget = 24;
-    } else if (p <= 0.55) {
-      const t = easeInOut((p - 0.15) / 0.4);
+    } else {
+      const t = easeInOut((p - 0.15) / 0.85);
       desired.lerpVectors(k0, k1, t);
       fovTarget = 24 + (21 - 24) * t;
-    } else {
-      const t = easeInOut((p - 0.55) / 0.45);
-      desired.lerpVectors(k1, k2, t);
-      fovTarget = 21 + (19 - 21) * t;
     }
 
     // Gentle continuous breathing — cinematic, never random.
