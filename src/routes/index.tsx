@@ -271,7 +271,7 @@ function Ingredients() {
 
 function FinalCTA() {
   return (
-    <section className="relative overflow-hidden px-6 py-40 md:py-56">
+    <section className="relative overflow-hidden px-5 py-28 sm:px-6 sm:py-40 md:py-56">
       <Particles count={60} />
       <div className="relative mx-auto max-w-4xl text-center">
         <motion.h2
@@ -279,7 +279,7 @@ function FinalCTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
-          className="text-balance font-display text-6xl leading-[0.95] md:text-[10rem]"
+          className="text-balance font-display text-5xl leading-[0.95] sm:text-6xl md:text-[10rem]"
         >
           Worn by <em className="italic">few.</em>
         </motion.h2>
@@ -288,7 +288,7 @@ function FinalCTA() {
         </p>
         <button
           data-magnetic
-          className="group relative mt-14 overflow-hidden border border-accent px-10 py-4 text-[11px] uppercase tracking-[0.4em] text-accent transition-all duration-500 hover:tracking-[0.5em]"
+          className="group relative mt-14 overflow-hidden border border-accent px-6 py-3 text-[10px] uppercase tracking-[0.3em] text-accent transition-all duration-500 hover:tracking-[0.4em] sm:px-10 sm:py-4 sm:text-[11px] sm:tracking-[0.4em] sm:hover:tracking-[0.5em]"
         >
           <span className="absolute inset-0 -translate-x-full bg-accent transition-transform duration-700 group-hover:translate-x-0" />
           <span className="relative transition-colors duration-500 group-hover:text-accent-foreground">Discover Collection</span>
