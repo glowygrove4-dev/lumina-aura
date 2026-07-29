@@ -153,34 +153,31 @@ export function BottleJourney() {
 
     const tick = () => {
       const trio = document.getElementById("trio");
-      const ing = document.getElementById("ingredients");
+      const showcase = document.getElementById("story");
       const vh = window.innerHeight;
 
-      if (trio && ing) {
+      if (trio && showcase) {
         const trioRect = trio.getBoundingClientRect();
-        const ingRect = ing.getBoundingClientRect();
+        const showRect = showcase.getBoundingClientRect();
 
         // Journey starts when Trio's top crosses 40% of the viewport.
-        // Journey ends when Ingredients' bottom reaches 60% of the viewport.
+        // Journey ends when Showcase's bottom reaches 60% of the viewport.
         const startDelta = vh * 0.4 - trioRect.top;
-        const totalRange = ingRect.bottom - vh * 0.6 - (trioRect.top - vh * 0.4);
+        const totalRange = showRect.bottom - vh * 0.6 - (trioRect.top - vh * 0.4);
         const raw = totalRange > 0 ? startDelta / totalRange : 0;
         const clamped = Math.max(0, Math.min(1, raw));
         stateRef.current.p = clamped;
 
-        // Visibility: strictly Trio → Ingredients. Never in Hero, never after.
+        // Visibility: strictly Trio → Showcase. Never in Hero, never after.
         const shouldShow = raw > 0 && raw < 1.01;
         if (shouldShow !== currentlyVisible) {
           currentlyVisible = shouldShow;
           setVisible(shouldShow);
         }
 
-        // Card image handoff — the featured card's <img> fades as the real
-        // 3D bottle emerges, so the switchover is invisible.
         const handoff = Math.max(0, Math.min(1, clamped / 0.08));
         document.documentElement.style.setProperty("--bottle-handoff", String(handoff));
 
-        // Featured card screen position — anchor for the emerge phase.
         const cardImg = document.querySelector(
           'img[alt="Riya Sheikh"]',
         ) as HTMLImageElement | null;
