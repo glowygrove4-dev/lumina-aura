@@ -154,21 +154,24 @@ export function BottleJourney() {
     const tick = () => {
       const trio = document.getElementById("trio");
       const showcase = document.getElementById("story");
+      const cardImg = document.querySelector(
+        'img[alt="Riya Sheikh"]',
+      ) as HTMLImageElement | null;
       const vh = window.innerHeight;
 
-      if (trio && showcase) {
-        const trioRect = trio.getBoundingClientRect();
+      if (trio && showcase && cardImg) {
+        const cardRect = cardImg.getBoundingClientRect();
+        const cardCenterY = cardRect.top + cardRect.height / 2;
         const showRect = showcase.getBoundingClientRect();
 
-        // Journey starts when Trio's top crosses 40% of the viewport.
+        // Journey starts when the featured card's CENTER reaches the viewport center.
         // Journey ends when Showcase's bottom reaches 60% of the viewport.
-        const startDelta = vh * 0.4 - trioRect.top;
-        const totalRange = showRect.bottom - vh * 0.6 - (trioRect.top - vh * 0.4);
+        const startDelta = vh * 0.5 - cardCenterY;
+        const totalRange = showRect.bottom - vh * 0.6 - (cardCenterY - vh * 0.5);
         const raw = totalRange > 0 ? startDelta / totalRange : 0;
         const clamped = Math.max(0, Math.min(1, raw));
         stateRef.current.p = clamped;
 
-        // Visibility: strictly Trio → Showcase. Never in Hero, never after.
         const shouldShow = raw > 0 && raw < 1.01;
         if (shouldShow !== currentlyVisible) {
           currentlyVisible = shouldShow;
@@ -178,15 +181,9 @@ export function BottleJourney() {
         const handoff = Math.max(0, Math.min(1, clamped / 0.08));
         document.documentElement.style.setProperty("--bottle-handoff", String(handoff));
 
-        const cardImg = document.querySelector(
-          'img[alt="Riya Sheikh"]',
-        ) as HTMLImageElement | null;
-        if (cardImg) {
-          const r = cardImg.getBoundingClientRect();
-          stateRef.current.cardX = r.left + r.width / 2;
-          stateRef.current.cardY = r.top + r.height / 2;
-          stateRef.current.hasCard = true;
-        }
+        stateRef.current.cardX = cardRect.left + cardRect.width / 2;
+        stateRef.current.cardY = cardCenterY;
+        stateRef.current.hasCard = true;
       } else {
         if (currentlyVisible) {
           currentlyVisible = false;
