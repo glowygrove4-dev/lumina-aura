@@ -8,6 +8,7 @@ import { Cursor } from "@/components/Cursor";
 import { Loader } from "@/components/Loader";
 import { TiltCard } from "@/components/TiltCard";
 import { Particles } from "@/components/Particles";
+import { JourneyChapters } from "@/components/JourneyChapters";
 import heroVideo from "@/assets/hero.mp4.asset.json";
 import perfumeImg from "@/assets/perfume.png.asset.json";
 
@@ -44,6 +45,7 @@ function Page() {
         <Trio />
         <Showcase />
         <Ingredients />
+        <JourneyChapters />
         <FinalCTA />
         <Footer />
       </SmoothScroll>
