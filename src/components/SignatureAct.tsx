@@ -89,7 +89,7 @@ export function SignatureAct() {
             id="palm-anchor"
             aria-hidden
             className="absolute block h-1 w-1"
-            style={{ left: "16%", top: "54%" }}
+            style={{ left: "14%", top: "48%" }}
           />
         </motion.div>
 
