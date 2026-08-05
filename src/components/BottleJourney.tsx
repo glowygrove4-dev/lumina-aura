@@ -174,20 +174,6 @@ function Bottle() {
     const baseScale = (visibleHeight * fraction) / modelHeight.current;
     const scl = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
     group.current.scale.setScalar(scl);
-    if (typeof window !== "undefined") {
-      const v = group.current.position.clone().project(camera);
-      (window as any).__dbg = {
-        sx: ((v.x + 1) / 2) * size.width,
-        sy: ((1 - v.y) / 2) * size.height,
-        palm: [journey.palmX, journey.palmY],
-        pos: group.current.position.toArray(),
-        scl,
-        cam: camera.position.toArray(),
-        fov: (camera as THREE.PerspectiveCamera).fov,
-        palmWorld: palmWorld.toArray(),
-        size: [size.width, size.height],
-      };
-    }
   });
 
   return (
