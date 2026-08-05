@@ -5,12 +5,15 @@ import * as THREE from "three";
 import perfumeAsset from "@/assets/perfume.glb.asset.json";
 import { journey, useJourneyStore } from "@/journey/state";
 import {
-  CAMERA_PATH,
   CHAPTER_COUNT,
-  bottleTargetFor,
+  HOLD_END,
+  LIFT_END,
+  PEDESTAL_TOP,
+  bezier3,
   clamp01,
   easeInOut,
-  fovFor,
+  easeInOutSlow,
+  easeOut,
 } from "@/journey/chapters";
 import { JourneyStage } from "@/journey/JourneyStage";
 
@@ -21,14 +24,15 @@ useGLTF.preload(perfumeAsset.url);
  *
  * Act I  (unchanged): the bottle emerges from the featured Trio card and
  *          travels to the Showcase section.
- * Act II  (chapters 5–12): the same object continues through the scent trail,
- *          glass shatter, light tunnel, aura, macro, wave, pedestal and final
- *          hero — driven by scroll progress across #journey-chapters.
+ * Act II  (signature act, after Ingredients): the same object rests in the
+ *          model's palm, lifts, rotates through space and settles on marble.
  */
 
 function Bottle() {
   const group = useRef<THREE.Group>(null);
   const inner = useRef<THREE.Group>(null);
+  const pivot = useRef<THREE.Group>(null);
+
   const { scene } = useGLTF(perfumeAsset.url);
   const { camera, size } = useThree();
 
@@ -39,25 +43,31 @@ function Bottle() {
 
   const ndc = useMemo(() => new THREE.Vector3(), []);
   const cardWorld = useMemo(() => new THREE.Vector3(), []);
+  const palmWorld = useMemo(() => new THREE.Vector3(), []);
+  const palmCaptured = useMemo(() => new THREE.Vector3(), []);
   const emergePos = useMemo(() => new THREE.Vector3(), []);
   const target = useMemo(() => new THREE.Vector3(), []);
   const chapterPos = useMemo(() => new THREE.Vector3(), []);
+  const ctrl = useMemo(() => new THREE.Vector3(), []);
   const showcasePos = useMemo(() => new THREE.Vector3(-0.55, 0.05, 0), []);
   const emergeCaptured = useRef(false);
+  const palmLocked = useRef(false);
+
+  const unproject = (px: number, py: number, out: THREE.Vector3) => {
+    const ndcX = (px / size.width) * 2 - 1;
+    const ndcY = -(py / size.height) * 2 + 1;
+    ndc.set(ndcX, ndcY, 0.5).unproject(camera);
+    ndc.sub(camera.position).normalize();
+    const dist = -camera.position.z / ndc.z;
+    return out.copy(camera.position).add(ndc.multiplyScalar(dist));
+  };
 
   useFrame((state) => {
     if (!group.current || !inner.current) return;
     const time = state.clock.getElapsedTime();
     const p = journey.p;
 
-    if (journey.hasCard) {
-      const ndcX = (journey.cardX / size.width) * 2 - 1;
-      const ndcY = -(journey.cardY / size.height) * 2 + 1;
-      ndc.set(ndcX, ndcY, 0.5).unproject(camera);
-      ndc.sub(camera.position).normalize();
-      const dist = -camera.position.z / ndc.z;
-      cardWorld.copy(camera.position).add(ndc.multiplyScalar(dist));
-    }
+    if (journey.hasCard) unproject(journey.cardX, journey.cardY, cardWorld);
 
     if (p <= 0.15 || !emergeCaptured.current) {
       emergePos.copy(cardWorld);
@@ -73,19 +83,48 @@ function Bottle() {
       target.lerpVectors(emergePos, showcasePos, travelT);
     }
 
-    // ---- Act II: hand the same object to the chapter keyframes.
+    // ---- Act II: rest in the palm → lift → land on the marble.
     const c = journey.c;
     if (journey.inChapters) {
-      bottleTargetFor(c, chapterPos);
-      const handoff = clamp01(c / 0.08);
+      if (journey.hasPalm) unproject(journey.palmX, journey.palmY, palmWorld);
+
+      if (c <= LIFT_END * 0.35 || !palmLocked.current) {
+        palmCaptured.copy(palmWorld);
+        if (c > LIFT_END * 0.35) palmLocked.current = true;
+      }
+      if (c < 0.02) palmLocked.current = false;
+
+      if (c <= HOLD_END) {
+        // Sitting on the open palm — only a whisper of breath.
+        chapterPos.copy(palmWorld);
+      } else if (c <= LIFT_END) {
+        const t = easeInOutSlow(clamp01((c - HOLD_END) / (LIFT_END - HOLD_END)));
+        // A long, soft arc: up out of the hand, over, then down to the marble.
+        ctrl.set(
+          (palmCaptured.x + PEDESTAL_TOP.x) / 2 - 0.18,
+          Math.max(palmCaptured.y, PEDESTAL_TOP.y) + 0.95,
+          (palmCaptured.z + PEDESTAL_TOP.z) / 2 + 0.35,
+        );
+        bezier3(palmCaptured, ctrl, PEDESTAL_TOP, t, chapterPos);
+      } else {
+        // Landed. No bounce — just an infinitesimal settle.
+        const s = easeOut(clamp01((c - LIFT_END) / 0.08));
+        chapterPos.copy(PEDESTAL_TOP);
+        chapterPos.y += (1 - s) * 0.02;
+      }
+
+      const handoff = clamp01(c / 0.06);
       target.lerp(chapterPos, easeInOut(handoff));
+    } else {
+      palmLocked.current = false;
     }
 
     // Micro idle — a couple of pixels of weightless drift.
-    target.x += Math.cos(time * 0.5) * 0.006;
-    target.y += Math.sin(time * 0.7) * 0.012;
+    const idle = journey.inChapters && c > LIFT_END ? 0.5 : 1;
+    target.x += Math.cos(time * 0.5) * 0.006 * idle;
+    target.y += Math.sin(time * 0.7) * 0.012 * idle;
 
-    group.current.position.lerp(target, 0.08);
+    group.current.position.lerp(target, journey.inChapters ? 0.06 : 0.08);
 
     // Rotation: cinematic spin during Act I flight, then restrained motion so
     // the label always stays readable (never more than a few degrees away).
@@ -96,31 +135,43 @@ function Bottle() {
     let roll: number;
 
     if (journey.inChapters) {
-      const drift = 1 - clamp01(c / 0.1);
-      yaw = travelT * Math.PI * 2 * drift + Math.sin(time * 0.16) * 0.09 + pointerYaw;
-      pitch = Math.sin(time * 0.13) * 0.025 + pointerPitch;
-      roll = Math.sin(time * 0.1) * 0.012;
+      // A single slow, beautiful revolution during the lift, then a very slow
+      // turntable once it has landed. The label always comes back to camera.
+      const liftT = clamp01((c - HOLD_END) / (LIFT_END - HOLD_END));
+      const spin = easeInOutSlow(liftT) * Math.PI * 2;
+      const settleSpin = c > LIFT_END ? (c - LIFT_END) * 1.1 : 0;
+      yaw = spin + settleSpin + Math.sin(time * 0.14) * 0.05 + pointerYaw;
+      pitch = Math.sin(liftT * Math.PI) * 0.06 + Math.sin(time * 0.12) * 0.02 + pointerPitch;
+      roll = Math.sin(liftT * Math.PI) * 0.05 + Math.sin(time * 0.1) * 0.008;
     } else {
       yaw = travelT * Math.PI * 2 + Math.sin(time * 0.22) * 0.06 + pointerYaw;
       pitch = Math.sin(travelT * Math.PI) * 0.35 + Math.sin(time * 0.18) * 0.025 + pointerPitch;
       roll = Math.sin(travelT * Math.PI) * 0.14;
     }
 
-    inner.current.rotation.y += (yaw - inner.current.rotation.y) * 0.06;
-    inner.current.rotation.x += (pitch - inner.current.rotation.x) * 0.06;
-    inner.current.rotation.z += (roll - inner.current.rotation.z) * 0.06;
+    inner.current.rotation.y += (yaw - inner.current.rotation.y) * 0.05;
+    inner.current.rotation.x += (pitch - inner.current.rotation.x) * 0.05;
+    inner.current.rotation.z += (roll - inner.current.rotation.z) * 0.05;
 
     if (!modelHeight.current) {
       const box = new THREE.Box3().setFromObject(scene);
       const worldScale = group.current.getWorldScale(new THREE.Vector3()).y || 1;
       modelHeight.current = Math.max(0.001, (box.max.y - box.min.y) / worldScale);
+      // Re-pivot the model: origin at the centre of its base, so the group
+      // position is literally "where the bottle stands".
+      if (pivot.current) {
+        const center = box.getCenter(new THREE.Vector3());
+        pivot.current.position.set(-center.x / worldScale, -box.min.y / worldScale, -center.z / worldScale);
+      }
     }
 
-    // Framing-locked scale: never more than ~27-34% of the viewport height.
+    // Framing-locked scale — a touch larger in the signature act so the
+    // flacon reads as a real 100ml object in her hand.
     const cam = camera as THREE.PerspectiveCamera;
+    const fraction = heightFraction * (journey.inChapters ? 1.22 : 1);
     const dist = Math.max(0.4, camera.position.distanceTo(group.current.position));
     const visibleHeight = 2 * Math.tan((cam.fov * Math.PI) / 360) * dist;
-    const baseScale = (visibleHeight * heightFraction) / modelHeight.current;
+    const baseScale = (visibleHeight * fraction) / modelHeight.current;
     const scl = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
     group.current.scale.setScalar(scl);
   });
@@ -129,40 +180,56 @@ function Bottle() {
     <group ref={group} scale={0.2}>
       <group ref={inner}>
         <group rotation={[0, Math.PI, 0]}>
-          <primitive object={scene} />
+          <group ref={pivot}>
+            <primitive object={scene} />
+          </group>
         </group>
       </group>
     </group>
   );
 }
 
+
 function Rig() {
   const { camera, size } = useThree();
   const desired = useMemo(() => new THREE.Vector3(), []);
-  const pathPos = useMemo(() => new THREE.Vector3(), []);
   const look = useMemo(() => new THREE.Vector3(), []);
   const smoothLook = useMemo(() => new THREE.Vector3(), []);
 
   const k0 = useMemo(() => new THREE.Vector3(0.0, 0.15, 3.8), []); // emerge
   const k1 = useMemo(() => new THREE.Vector3(0.55, 0.2, 4.2), []); // showcase
+  const a0 = useMemo(() => new THREE.Vector3(0.55, 0.2, 4.2), []); // act II in
+  const a1 = useMemo(() => new THREE.Vector3(0.3, 0.12, 3.5), []); // push in
+  const a2 = useMemo(() => new THREE.Vector3(0.1, 0.18, 4.0), []); // lift wide
 
   useFrame((st) => {
     const p = journey.p;
+    const c = journey.c;
     const time = st.clock.getElapsedTime();
     const mobileBoost = size.width < 768 ? 6 : 0;
     let fovTarget: number;
 
     if (journey.inChapters) {
-      // One unbroken Bézier-like camera path across all chapters.
-      CAMERA_PATH.getPoint(clamp01(journey.c), pathPos);
-      desired.copy(pathPos);
-      // Very subtle orbit + scroll-velocity inertia.
-      const orbit = 0.16;
-      desired.x += Math.sin(time * 0.1) * orbit;
-      desired.z += Math.cos(time * 0.09) * orbit * 0.6;
-      desired.y += Math.sin(time * 0.24) * 0.02 + journey.velocity * 0.12;
-      fovTarget = fovFor(journey.c, mobileBoost);
-      look.set(Math.sin(time * 0.07) * 0.02, journey.velocity * -0.04, 0);
+      if (c <= HOLD_END) {
+        // Slow editorial push toward the model.
+        desired.lerpVectors(a0, a1, easeInOut(clamp01(c / HOLD_END)));
+        fovTarget = 22 - 1.5 * clamp01(c / HOLD_END) + mobileBoost;
+      } else if (c <= LIFT_END) {
+        desired.lerpVectors(a1, a2, easeInOut((c - HOLD_END) / (LIFT_END - HOLD_END)));
+        fovTarget = 20.5 + mobileBoost;
+      } else {
+        // Apple-style turntable: the camera circles the landed bottle.
+        const t = clamp01((c - LIFT_END) / (1 - LIFT_END));
+        const angle = Math.atan2(a2.x, a2.z) + easeInOut(t) * 0.85;
+        const radius = a2.length();
+        desired.set(Math.sin(angle) * radius, a2.y + easeInOut(t) * 0.12, Math.cos(angle) * radius);
+        fovTarget = 20 + mobileBoost;
+      }
+      // Very subtle breathing orbit + scroll inertia.
+      desired.x += Math.sin(time * 0.09) * 0.07;
+      desired.z += Math.cos(time * 0.08) * 0.05;
+      desired.y += Math.sin(time * 0.22) * 0.015 + journey.velocity * 0.08;
+      look.set(0, c > LIFT_END ? PEDESTAL_TOP.y * 0.5 : 0, 0);
     } else if (p <= 0.15) {
       desired.copy(k0);
       fovTarget = 24 + mobileBoost;
@@ -177,12 +244,12 @@ function Rig() {
     desired.x += Math.sin(time * 0.08) * 0.05;
     desired.y += Math.sin(time * 0.3) * 0.01;
 
-    camera.position.lerp(desired, 0.05);
-    smoothLook.lerp(look, 0.04);
+    camera.position.lerp(desired, 0.04);
+    smoothLook.lerp(look, 0.035);
     camera.lookAt(smoothLook);
 
     const cam = camera as THREE.PerspectiveCamera;
-    cam.fov += (fovTarget - cam.fov) * 0.05;
+    cam.fov += (fovTarget - cam.fov) * 0.04;
     cam.updateProjectionMatrix();
   });
 
@@ -211,10 +278,11 @@ export function BottleJourney() {
       const trio = document.getElementById("trio");
       const showcase = document.getElementById("story");
       const chapters = document.getElementById("journey-chapters");
+      const palm = document.getElementById("palm-anchor");
       const cardImg = document.querySelector('img[alt="Riya Sheikh"]') as HTMLImageElement | null;
       const vh = window.innerHeight;
 
-      // Smoothed scroll velocity (drives camera inertia + scent reactivity).
+      // Smoothed scroll velocity (drives camera inertia).
       const y = window.scrollY;
       const raw = (y - lastScroll) / vh;
       lastScroll = y;
@@ -240,7 +308,17 @@ export function BottleJourney() {
         journey.hasCard = true;
       }
 
-      // ---- Act II progress across the chapter container.
+      // ---- Palm anchor of the model photograph.
+      if (palm) {
+        const r = palm.getBoundingClientRect();
+        journey.palmX = r.left + r.width / 2;
+        journey.palmY = r.top + r.height / 2;
+        journey.hasPalm = true;
+      } else {
+        journey.hasPalm = false;
+      }
+
+      // ---- Act II progress across the signature act container.
       let chaptersVisible = false;
       if (chapters) {
         const r = chapters.getBoundingClientRect();
@@ -288,27 +366,32 @@ export function BottleJourney() {
         camera={{ position: [0, 0.15, 3.8], fov: 24 }}
         shadows
       >
-        <ambientLight intensity={0.35} />
+        <ambientLight intensity={0.32} />
+        {/* Key softbox */}
         <directionalLight
           position={[3.5, 5, 3]}
-          intensity={1.8}
+          intensity={1.7}
           color="#fff2dc"
           castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
         />
-        <directionalLight position={[-4, 2, -3]} intensity={1.1} color="#ffb37a" />
-        <directionalLight position={[-2, 1.5, 4]} intensity={0.5} color="#9ac4ff" />
-        <pointLight position={[0, 2.4, 2]} intensity={0.7} color="#ffe8c2" />
+        {/* Warm rim */}
+        <directionalLight position={[-4, 2, -3]} intensity={1.15} color="#ffb37a" />
+        {/* Cool fill */}
+        <directionalLight position={[-2, 1.5, 4]} intensity={0.45} color="#9ac4ff" />
+        {/* Back light for glass separation */}
+        <directionalLight position={[0, 1.2, -5]} intensity={0.8} color="#ffe8c2" />
+        <pointLight position={[0, 2.4, 2]} intensity={0.6} color="#ffe8c2" />
 
         <Suspense fallback={null}>
           <Bottle />
           <JourneyStage />
           <ContactShadows
             position={[0, -0.85, 0]}
-            opacity={0.5}
+            opacity={0.45}
             scale={5}
-            blur={2.6}
+            blur={2.8}
             far={2}
             resolution={512}
           />
