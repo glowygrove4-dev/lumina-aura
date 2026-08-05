@@ -19,6 +19,11 @@ export type JourneyFrame = {
   cardX: number;
   cardY: number;
   hasCard: boolean;
+  /** Model's open-palm anchor in screen px (signature act). */
+  palmX: number;
+  palmY: number;
+  hasPalm: boolean;
+
   /** Smoothed scroll velocity, roughly -1..1. */
   velocity: number;
   /** Normalised pointer, -1..1. */
@@ -35,6 +40,9 @@ export const journey: JourneyFrame = {
   cardX: 0,
   cardY: 0,
   hasCard: false,
+  palmX: 0,
+  palmY: 0,
+  hasPalm: false,
   velocity: 0,
   pointerX: 0,
   pointerY: 0,

@@ -1,36 +1,18 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { journey } from "../state";
-import { chapterWeight, easeOut } from "../chapters";
+import { chapterWeight, clamp01, easeOut, LIFT_END, PEDESTAL_TOP } from "../chapters";
 
 /**
- * Chapter 11 — Luxury Pedestal.
- * A marble plinth rises, a warm spotlight blooms, fog rolls across the floor
- * and the landing kicks up a little elegant dust.
+ * The Pedestal — a dark marble plinth that rises out of the fog just before
+ * the bottle lands on it. No bounce, no physics: only a gentle arrival.
  */
 export function Pedestal({ index }: { index: number }) {
   const group = useRef<THREE.Group>(null);
   const plinth = useRef<THREE.Mesh>(null);
   const fog = useRef<THREE.Group>(null);
-  const impact = useRef<THREE.Points>(null);
   const spot = useRef<THREE.SpotLight>(null);
-
-  const dust = useMemo(() => {
-    const n = 120;
-    const positions = new Float32Array(n * 3);
-    const seeds = new Float32Array(n * 2);
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 0.1 + Math.random() * 0.5;
-      positions[i * 3] = Math.cos(a) * r;
-      positions[i * 3 + 1] = -0.5;
-      positions[i * 3 + 2] = Math.sin(a) * r;
-      seeds[i * 2] = Math.random();
-      seeds[i * 2 + 1] = Math.random();
-    }
-    return { positions, seeds, n };
-  }, []);
 
   useFrame((state, delta) => {
     const w = chapterWeight(journey.c, index);
@@ -40,62 +22,57 @@ export function Pedestal({ index }: { index: number }) {
     if (!g.visible) return;
 
     const time = state.clock.getElapsedTime();
-    const local = journey.chapter === index ? journey.chapterT : journey.c * 8 > index ? 1 : 0;
-    const rise = easeOut(Math.min(1, local * 1.6));
+    // Rises across the second half of the lift, so it is already there to meet
+    // the bottle at LIFT_END.
+    const rise = easeOut(clamp01((journey.c - (LIFT_END - 0.3)) / 0.28));
 
     if (plinth.current) {
-      plinth.current.position.y = -1.35 + rise * 0.72;
-      (plinth.current.material as THREE.MeshStandardMaterial).opacity = w;
+      plinth.current.position.y = PEDESTAL_TOP.y - 1.5 + rise * 0.94;
+      (plinth.current.material as THREE.MeshStandardMaterial).opacity = w * rise;
     }
-    if (spot.current) spot.current.intensity = w * rise * 24;
+    if (spot.current) spot.current.intensity = w * rise * 18;
 
     if (fog.current) {
-      fog.current.rotation.y += delta * 0.05;
+      fog.current.rotation.y += delta * 0.03;
       fog.current.children.forEach((c, i) => {
         const m = (c as THREE.Mesh).material as THREE.MeshBasicMaterial;
-        m.opacity = w * rise * (0.06 + 0.03 * Math.sin(time * 0.4 + i));
-        c.scale.setScalar(1 + Math.sin(time * 0.25 + i) * 0.05);
+        m.opacity = w * rise * (0.035 + 0.02 * Math.sin(time * 0.3 + i));
+        c.scale.setScalar(1 + Math.sin(time * 0.2 + i) * 0.04);
       });
-    }
-
-    const pts = impact.current;
-    if (pts) {
-      const arr = pts.geometry.attributes.position.array as Float32Array;
-      const burst = Math.max(0, 1 - Math.abs(local - 0.62) / 0.28);
-      for (let i = 0; i < dust.n; i++) {
-        arr[i * 3 + 1] += delta * (0.04 + dust.seeds[i * 2] * 0.1);
-        if (arr[i * 3 + 1] > -0.1) arr[i * 3 + 1] = -0.55;
-      }
-      pts.geometry.attributes.position.needsUpdate = true;
-      (pts.material as THREE.PointsMaterial).opacity = w * burst * 0.85;
     }
   });
 
   return (
     <group ref={group}>
-      <mesh ref={plinth} position={[0, -1.35, 0]} receiveShadow castShadow>
-        <cylinderGeometry args={[0.85, 0.92, 0.5, 64]} />
-        <meshStandardMaterial color="#e8e4dc" roughness={0.32} metalness={0.06} transparent opacity={0} />
+      <mesh ref={plinth} position={[0, -1.7, 0]} receiveShadow castShadow>
+        <cylinderGeometry args={[0.62, 0.66, 0.95, 96]} />
+        <meshStandardMaterial
+          color="#1c1d20"
+          roughness={0.28}
+          metalness={0.15}
+          transparent
+          opacity={0}
+        />
       </mesh>
 
       <spotLight
         ref={spot}
-        position={[0.6, 3.2, 1.4]}
-        angle={0.42}
-        penumbra={0.9}
+        position={[0.9, 3.4, 1.8]}
+        angle={0.4}
+        penumbra={0.95}
         intensity={0}
-        color="#ffdfae"
+        color="#ffe4bb"
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
       />
 
-      <group ref={fog} position={[0, -0.62, 0]}>
+      <group ref={fog} position={[0, -0.78, 0]}>
         {[0, 1, 2].map((i) => (
-          <mesh key={i} rotation={[-Math.PI / 2, 0, i * 0.7]} position={[0, i * 0.035, 0]}>
-            <circleGeometry args={[2.2 - i * 0.35, 48]} />
+          <mesh key={i} rotation={[-Math.PI / 2, 0, i * 0.8]} position={[0, i * 0.03, 0]}>
+            <circleGeometry args={[2.4 - i * 0.4, 48]} />
             <meshBasicMaterial
-              color="#f2e6cf"
+              color="#efe3cd"
               transparent
               opacity={0}
               depthWrite={false}
@@ -104,20 +81,6 @@ export function Pedestal({ index }: { index: number }) {
           </mesh>
         ))}
       </group>
-
-      <points ref={impact} position={[0, 0, 0]}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[dust.positions, 3]} />
-        </bufferGeometry>
-        <pointsMaterial
-          size={0.016}
-          color="#ffe9c6"
-          transparent
-          opacity={0}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </points>
     </group>
   );
 }
