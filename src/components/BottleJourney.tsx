@@ -182,6 +182,10 @@ function Bottle() {
         palm: [journey.palmX, journey.palmY],
         pos: group.current.position.toArray(),
         scl,
+        cam: camera.position.toArray(),
+        fov: (camera as THREE.PerspectiveCamera).fov,
+        palmWorld: palmWorld.toArray(),
+        size: [size.width, size.height],
       };
     }
   });
