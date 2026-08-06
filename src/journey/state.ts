@@ -72,5 +72,3 @@ export const useJourneyStore = create<JourneyStore>((set) => ({
   setChapter: (chapter) => set((s) => (s.chapter === chapter ? s : { chapter })),
   setActive: (active) => set((s) => (s.active === active ? s : { active })),
 }));
-
-if (typeof window !== "undefined") (window as unknown as Record<string, unknown>).__journey = journey;

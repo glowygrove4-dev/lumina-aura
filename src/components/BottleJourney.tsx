@@ -53,6 +53,7 @@ function Bottle() {
   const showcasePos = useMemo(() => new THREE.Vector3(-0.55, 0.05, 0), []);
   const emergeCaptured = useRef(false);
   const palmLocked = useRef(false);
+  const finaleEntered = useRef(false);
 
   const unproject = (px: number, py: number, out: THREE.Vector3) => {
     const ndcX = (px / size.width) * 2 - 1;
@@ -120,12 +121,18 @@ function Bottle() {
       palmLocked.current = false;
     }
 
+    if (!journey.inFinale) finaleEntered.current = false;
+
     // ---- Act III: the finale — dead centre, one full slow revolution.
     if (journey.inFinale) {
       // Dead centre of the frame: the camera looks at the world origin, so the
       // flacon simply stands there — pivot is at its base, hence the half-height
       // drop that puts the body optically in the middle of the ring tunnel.
       finaleWorld.set(0, -(group.current.scale.x * modelHeight.current) / 2, 0);
+      if (!finaleEntered.current) {
+        finaleEntered.current = true;
+        group.current.position.copy(finaleWorld);
+      }
       target.copy(finaleWorld);
     }
 
@@ -134,7 +141,7 @@ function Bottle() {
     target.x += Math.cos(time * 0.5) * 0.006 * idle;
     target.y += Math.sin(time * 0.7) * 0.012 * idle;
 
-    group.current.position.lerp(target, journey.inFinale ? 0.16 : journey.inChapters ? 0.06 : 0.08);
+    group.current.position.lerp(target, journey.inFinale ? 0.22 : journey.inChapters ? 0.06 : 0.08);
 
     // Rotation: cinematic spin during Act I flight, then restrained motion so
     // the label always stays readable (never more than a few degrees away).
@@ -169,14 +176,6 @@ function Bottle() {
     inner.current.rotation.z += (roll - inner.current.rotation.z) * 0.05;
 
     if (!modelHeight.current) {
-      const nodes: unknown[] = [];
-      scene.traverse((o) => {
-        if ((o as THREE.Mesh).isMesh) {
-          const bb = new THREE.Box3().setFromObject(o);
-          nodes.push({ name: o.name, min: bb.min.toArray(), max: bb.max.toArray(), vis: o.visible });
-        }
-      });
-      (window as unknown as Record<string, unknown>).__nodes = nodes;
       const box = new THREE.Box3().setFromObject(scene);
       const worldScale = group.current.getWorldScale(new THREE.Vector3()).y || 1;
       modelHeight.current = Math.max(0.001, (box.max.y - box.min.y) / worldScale);
@@ -197,12 +196,6 @@ function Bottle() {
     const baseScale = (visibleHeight * fraction) / modelHeight.current;
     const scl = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
     group.current.scale.setScalar(scl);
-    (window as unknown as Record<string, unknown>).__dbg = {
-      pos: group.current.position.toArray(),
-      tgt: target.toArray(), inFinale: journey.inFinale, inChapters: journey.inChapters, f: journey.f,
-      scl, baseScale, mh: modelHeight.current, dist, visibleHeight, fov: cam.fov,
-      cam: camera.position.toArray(),
-    };
   });
 
   return (
