@@ -39,11 +39,12 @@ function Bottle() {
   // Height of the raw model in world units — used to derive a scale that keeps
   // the bottle at a fixed fraction of the viewport, whatever the camera does.
   const modelHeight = useRef(0);
-  const heightFraction = size.width < 480 ? 0.32 : size.width < 768 ? 0.28 : 0.24;
+  const heightFraction = size.width < 480 ? 0.44 : size.width < 768 ? 0.42 : 0.4;
 
   const ndc = useMemo(() => new THREE.Vector3(), []);
   const cardWorld = useMemo(() => new THREE.Vector3(), []);
   const palmWorld = useMemo(() => new THREE.Vector3(), []);
+  const finaleWorld = useMemo(() => new THREE.Vector3(), []);
   const palmCaptured = useMemo(() => new THREE.Vector3(), []);
   const emergePos = useMemo(() => new THREE.Vector3(), []);
   const target = useMemo(() => new THREE.Vector3(), []);
@@ -52,6 +53,7 @@ function Bottle() {
   const showcasePos = useMemo(() => new THREE.Vector3(-0.55, 0.05, 0), []);
   const emergeCaptured = useRef(false);
   const palmLocked = useRef(false);
+  const finaleEntered = useRef(false);
 
   const unproject = (px: number, py: number, out: THREE.Vector3) => {
     const ndcX = (px / size.width) * 2 - 1;
@@ -119,12 +121,27 @@ function Bottle() {
       palmLocked.current = false;
     }
 
+    if (!journey.inFinale) finaleEntered.current = false;
+
+    // ---- Act III: the finale — dead centre, one full slow revolution.
+    if (journey.inFinale) {
+      // Dead centre of the frame: the camera looks at the world origin, so the
+      // flacon simply stands there — pivot is at its base, hence the half-height
+      // drop that puts the body optically in the middle of the ring tunnel.
+      finaleWorld.set(0, -(group.current.scale.x * modelHeight.current) / 2, 0);
+      if (!finaleEntered.current) {
+        finaleEntered.current = true;
+        group.current.position.copy(finaleWorld);
+      }
+      target.copy(finaleWorld);
+    }
+
     // Micro idle — a couple of pixels of weightless drift.
     const idle = journey.inChapters && c > LIFT_END ? 0.5 : 1;
     target.x += Math.cos(time * 0.5) * 0.006 * idle;
     target.y += Math.sin(time * 0.7) * 0.012 * idle;
 
-    group.current.position.lerp(target, journey.inChapters ? 0.06 : 0.08);
+    group.current.position.lerp(target, journey.inFinale ? 0.22 : journey.inChapters ? 0.06 : 0.08);
 
     // Rotation: cinematic spin during Act I flight, then restrained motion so
     // the label always stays readable (never more than a few degrees away).
@@ -134,7 +151,12 @@ function Bottle() {
     let pitch: number;
     let roll: number;
 
-    if (journey.inChapters) {
+    if (journey.inFinale) {
+      // A continuous, perfectly even 360° turntable.
+      yaw = journey.f * Math.PI * 4 + time * 0.25 + pointerYaw;
+      pitch = Math.sin(time * 0.12) * 0.02 + pointerPitch;
+      roll = 0;
+    } else if (journey.inChapters) {
       // A single slow, beautiful revolution during the lift, then a very slow
       // turntable once it has landed. The label always comes back to camera.
       const liftT = clamp01((c - HOLD_END) / (LIFT_END - HOLD_END));
@@ -149,7 +171,7 @@ function Bottle() {
       roll = Math.sin(travelT * Math.PI) * 0.14;
     }
 
-    inner.current.rotation.y += (yaw - inner.current.rotation.y) * 0.05;
+    inner.current.rotation.y += (yaw - inner.current.rotation.y) * (journey.inFinale ? 0.2 : 0.05);
     inner.current.rotation.x += (pitch - inner.current.rotation.x) * 0.05;
     inner.current.rotation.z += (roll - inner.current.rotation.z) * 0.05;
 
@@ -168,7 +190,7 @@ function Bottle() {
     // Framing-locked scale — a touch larger in the signature act so the
     // flacon reads as a real 100ml object in her hand.
     const cam = camera as THREE.PerspectiveCamera;
-    const fraction = heightFraction * (journey.inChapters ? 1.22 : 1);
+    const fraction = heightFraction * (journey.inFinale ? 1.15 : journey.inChapters ? 1.22 : 1);
     const dist = Math.max(0.4, camera.position.distanceTo(group.current.position));
     const visibleHeight = 2 * Math.tan((cam.fov * Math.PI) / 360) * dist;
     const baseScale = (visibleHeight * fraction) / modelHeight.current;
@@ -208,6 +230,21 @@ function Rig() {
     const time = st.clock.getElapsedTime();
     const mobileBoost = size.width < 768 ? 6 : 0;
     let fovTarget: number;
+
+    if (journey.inFinale) {
+      desired.set(0, 0.06, 3.9);
+      fovTarget = 24 + mobileBoost;
+      look.set(0, 0, 0);
+      desired.x += Math.sin(time * 0.08) * 0.05;
+      desired.y += Math.sin(time * 0.3) * 0.01;
+      camera.position.lerp(desired, 0.05);
+      smoothLook.lerp(look, 0.05);
+      camera.lookAt(smoothLook);
+      const camF = camera as THREE.PerspectiveCamera;
+      camF.fov += (fovTarget - camF.fov) * 0.05;
+      camF.updateProjectionMatrix();
+      return;
+    }
 
     if (journey.inChapters) {
       if (c <= HOLD_END) {
@@ -279,6 +316,8 @@ export function BottleJourney() {
       const showcase = document.getElementById("story");
       const chapters = document.getElementById("journey-chapters");
       const palm = document.getElementById("palm-anchor");
+      const finale = document.getElementById("finale-act");
+      const finaleAnchor = document.getElementById("finale-anchor");
       const cardImg = document.querySelector('img[alt="Riya Sheikh"]') as HTMLImageElement | null;
       const vh = window.innerHeight;
 
@@ -336,7 +375,27 @@ export function BottleJourney() {
         journey.inChapters = false;
       }
 
-      const shouldShow = actIVisible || chaptersVisible;
+      // ---- Act III: the finale ring tunnel.
+      let finaleVisible = false;
+      if (finale) {
+        const r = finale.getBoundingClientRect();
+        const span = r.height - vh;
+        journey.f = span > 0 ? Math.max(0, Math.min(1, -r.top / span)) : 0;
+        finaleVisible = r.top < vh * 0.9 && r.bottom > vh * 0.1;
+        journey.inFinale = finaleVisible;
+      } else {
+        journey.inFinale = false;
+      }
+      if (finaleAnchor) {
+        const r = finaleAnchor.getBoundingClientRect();
+        journey.finaleX = r.left + r.width / 2;
+        journey.finaleY = r.top + r.height / 2;
+        journey.hasFinale = true;
+      } else {
+        journey.hasFinale = false;
+      }
+
+      const shouldShow = actIVisible || chaptersVisible || finaleVisible;
       if (shouldShow !== currentlyVisible) {
         currentlyVisible = shouldShow;
         setVisible(shouldShow);

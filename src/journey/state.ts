@@ -23,6 +23,12 @@ export type JourneyFrame = {
   palmX: number;
   palmY: number;
   hasPalm: boolean;
+  /** Finale act (ring tunnel) progress + centre anchor. */
+  f: number;
+  inFinale: boolean;
+  finaleX: number;
+  finaleY: number;
+  hasFinale: boolean;
 
   /** Smoothed scroll velocity, roughly -1..1. */
   velocity: number;
@@ -43,6 +49,11 @@ export const journey: JourneyFrame = {
   palmX: 0,
   palmY: 0,
   hasPalm: false,
+  f: 0,
+  inFinale: false,
+  finaleX: 0,
+  finaleY: 0,
+  hasFinale: false,
   velocity: 0,
   pointerX: 0,
   pointerY: 0,

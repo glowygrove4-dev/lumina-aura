@@ -9,6 +9,7 @@ import { Loader } from "@/components/Loader";
 import { TiltCard } from "@/components/TiltCard";
 import { Particles } from "@/components/Particles";
 import { SignatureAct } from "@/components/SignatureAct";
+import { FinaleAct } from "@/components/FinaleAct";
 import heroVideo from "@/assets/hero.mp4.asset.json";
 import perfumeImg from "@/assets/perfume.png.asset.json";
 
@@ -46,6 +47,7 @@ function Page() {
         <Showcase />
         <Ingredients />
         <SignatureAct />
+        <FinaleAct />
         <FinalCTA />
         <Footer />
       </SmoothScroll>
