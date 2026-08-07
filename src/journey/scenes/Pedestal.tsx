@@ -27,7 +27,7 @@ export function Pedestal({ index }: { index: number }) {
     const rise = easeOut(clamp01((journey.c - (LIFT_END - 0.3)) / 0.28));
 
     if (plinth.current) {
-      plinth.current.position.y = PEDESTAL_TOP.y - 1.5 + rise * 0.94;
+      plinth.current.position.y = PEDESTAL_TOP.y - 0.48 - 1.5 + rise * 1.5;
       (plinth.current.material as THREE.MeshStandardMaterial).opacity = w * rise;
     }
     if (spot.current) spot.current.intensity = w * rise * 18;
@@ -45,7 +45,7 @@ export function Pedestal({ index }: { index: number }) {
   return (
     <group ref={group}>
       <mesh ref={plinth} position={[0, -1.7, 0]} receiveShadow castShadow>
-        <cylinderGeometry args={[0.62, 0.66, 0.95, 96]} />
+        <cylinderGeometry args={[0.4, 0.43, 0.96, 96]} />
         <meshStandardMaterial
           color="#1c1d20"
           roughness={0.28}

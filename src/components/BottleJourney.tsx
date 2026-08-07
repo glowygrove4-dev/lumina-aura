@@ -40,7 +40,7 @@ function Bottle() {
   // the bottle at a fixed fraction of the viewport, whatever the camera does.
   const modelHeight = useRef(0);
   const heightFraction =
-    size.width < 480 ? 0.42 : size.width < 768 ? 0.44 : size.width < 1280 ? 0.48 : 0.52;
+    size.width < 480 ? 0.28 : size.width < 768 ? 0.27 : size.width < 1280 ? 0.26 : 0.25;
 
   const ndc = useMemo(() => new THREE.Vector3(), []);
   const cardWorld = useMemo(() => new THREE.Vector3(), []);
@@ -195,30 +195,13 @@ function Bottle() {
     // Framing-locked scale — a touch larger in the signature act so the
     // flacon reads as a real 100ml object in her hand.
     const cam = camera as THREE.PerspectiveCamera;
-    const fraction = heightFraction * (journey.inFinale ? 1.05 : journey.inChapters ? 0.92 : 1.3);
+    const fraction = heightFraction * (journey.inFinale ? 1.05 : journey.inChapters ? 1 : 1.45);
     const dist = Math.max(0.4, camera.position.distanceTo(group.current.position));
     const visibleHeight = 2 * Math.tan((cam.fov * Math.PI) / 360) * dist;
     const baseScale = (visibleHeight * fraction) / modelHeight.current;
     const scl = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
     group.current.scale.setScalar(scl);
 
-    if (typeof window !== "undefined") {
-      const box = new THREE.Box3().setFromObject(group.current);
-      const toScreen = (v: THREE.Vector3) => {
-        const q = v.clone().project(camera);
-        return [ (q.x + 1) / 2 * size.width, (-q.y + 1) / 2 * size.height ];
-      };
-      (window as any).__dbg = {
-        c: journey.c, p: journey.p, inCh: journey.inChapters, inFin: journey.inFinale,
-        palm: [journey.palmX, journey.palmY],
-        groupPos: group.current.position.toArray(),
-        groupScreen: toScreen(group.current.position.clone()),
-        boxMinScreen: toScreen(new THREE.Vector3(box.min.x, box.min.y, 0)),
-        boxMaxScreen: toScreen(new THREE.Vector3(box.max.x, box.max.y, 0)),
-        modelH: modelHeight.current, scl,
-        target: target.toArray(), chapterPos: chapterPos.toArray(), palmWorld: palmWorld.toArray(), cam: camera.position.toArray(), fov: (camera as THREE.PerspectiveCamera).fov, canvas: [size.width, size.height],
-      };
-    }
   });
 
   return (
