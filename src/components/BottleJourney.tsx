@@ -39,7 +39,8 @@ function Bottle() {
   // Height of the raw model in world units — used to derive a scale that keeps
   // the bottle at a fixed fraction of the viewport, whatever the camera does.
   const modelHeight = useRef(0);
-  const heightFraction = size.width < 480 ? 0.62 : size.width < 768 ? 0.6 : 0.58;
+  const heightFraction =
+    size.width < 480 ? 0.62 : size.width < 768 ? 0.62 : size.width < 1280 ? 0.78 : 0.88;
 
   const ndc = useMemo(() => new THREE.Vector3(), []);
   const cardWorld = useMemo(() => new THREE.Vector3(), []);
