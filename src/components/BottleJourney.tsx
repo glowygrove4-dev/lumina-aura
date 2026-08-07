@@ -39,7 +39,7 @@ function Bottle() {
   // Height of the raw model in world units — used to derive a scale that keeps
   // the bottle at a fixed fraction of the viewport, whatever the camera does.
   const modelHeight = useRef(0);
-  const heightFraction = size.width < 480 ? 0.44 : size.width < 768 ? 0.42 : 0.4;
+  const heightFraction = size.width < 480 ? 0.62 : size.width < 768 ? 0.6 : 0.58;
 
   const ndc = useMemo(() => new THREE.Vector3(), []);
   const cardWorld = useMemo(() => new THREE.Vector3(), []);
@@ -190,7 +190,7 @@ function Bottle() {
     // Framing-locked scale — a touch larger in the signature act so the
     // flacon reads as a real 100ml object in her hand.
     const cam = camera as THREE.PerspectiveCamera;
-    const fraction = heightFraction * (journey.inFinale ? 1.15 : journey.inChapters ? 1.22 : 1);
+    const fraction = heightFraction * (journey.inFinale ? 1.2 : journey.inChapters ? 1.28 : 1);
     const dist = Math.max(0.4, camera.position.distanceTo(group.current.position));
     const visibleHeight = 2 * Math.tan((cam.fov * Math.PI) / 360) * dist;
     const baseScale = (visibleHeight * fraction) / modelHeight.current;
