@@ -40,7 +40,7 @@ function Bottle() {
   // the bottle at a fixed fraction of the viewport, whatever the camera does.
   const modelHeight = useRef(0);
   const heightFraction =
-    size.width < 480 ? 0.62 : size.width < 768 ? 0.62 : size.width < 1280 ? 0.78 : 0.88;
+    size.width < 480 ? 0.42 : size.width < 768 ? 0.44 : size.width < 1280 ? 0.48 : 0.52;
 
   const ndc = useMemo(() => new THREE.Vector3(), []);
   const cardWorld = useMemo(() => new THREE.Vector3(), []);
@@ -176,27 +176,49 @@ function Bottle() {
     inner.current.rotation.x += (pitch - inner.current.rotation.x) * 0.05;
     inner.current.rotation.z += (roll - inner.current.rotation.z) * 0.05;
 
-    if (!modelHeight.current) {
+    if (!modelHeight.current && pivot.current) {
+      // Measure the model in the pivot's own local space, so neither the
+      // group's current world position nor its scale can contaminate the
+      // result. Origin ends up at the centre of the bottle's base, which
+      // means group.position is literally "where the bottle stands".
+      pivot.current.updateWorldMatrix(true, false);
       const box = new THREE.Box3().setFromObject(scene);
-      const worldScale = group.current.getWorldScale(new THREE.Vector3()).y || 1;
-      modelHeight.current = Math.max(0.001, (box.max.y - box.min.y) / worldScale);
-      // Re-pivot the model: origin at the centre of its base, so the group
-      // position is literally "where the bottle stands".
-      if (pivot.current) {
-        const center = box.getCenter(new THREE.Vector3());
-        pivot.current.position.set(-center.x / worldScale, -box.min.y / worldScale, -center.z / worldScale);
-      }
+      const local = box
+        .clone()
+        .applyMatrix4(new THREE.Matrix4().copy(pivot.current.matrixWorld).invert());
+      modelHeight.current = Math.max(0.001, local.max.y - local.min.y);
+      const center = local.getCenter(new THREE.Vector3());
+      pivot.current.position.set(-center.x, -local.min.y, -center.z);
     }
+
 
     // Framing-locked scale — a touch larger in the signature act so the
     // flacon reads as a real 100ml object in her hand.
     const cam = camera as THREE.PerspectiveCamera;
-    const fraction = heightFraction * (journey.inFinale ? 1.2 : journey.inChapters ? 1.28 : 1);
+    const fraction = heightFraction * (journey.inFinale ? 1.05 : journey.inChapters ? 0.92 : 1.3);
     const dist = Math.max(0.4, camera.position.distanceTo(group.current.position));
     const visibleHeight = 2 * Math.tan((cam.fov * Math.PI) / 360) * dist;
     const baseScale = (visibleHeight * fraction) / modelHeight.current;
     const scl = THREE.MathUtils.lerp(group.current.scale.x || baseScale, baseScale, 0.08);
     group.current.scale.setScalar(scl);
+
+    if (typeof window !== "undefined") {
+      const box = new THREE.Box3().setFromObject(group.current);
+      const toScreen = (v: THREE.Vector3) => {
+        const q = v.clone().project(camera);
+        return [ (q.x + 1) / 2 * size.width, (-q.y + 1) / 2 * size.height ];
+      };
+      (window as any).__dbg = {
+        c: journey.c, p: journey.p, inCh: journey.inChapters, inFin: journey.inFinale,
+        palm: [journey.palmX, journey.palmY],
+        groupPos: group.current.position.toArray(),
+        groupScreen: toScreen(group.current.position.clone()),
+        boxMinScreen: toScreen(new THREE.Vector3(box.min.x, box.min.y, 0)),
+        boxMaxScreen: toScreen(new THREE.Vector3(box.max.x, box.max.y, 0)),
+        modelH: modelHeight.current, scl,
+        target: target.toArray(), chapterPos: chapterPos.toArray(), palmWorld: palmWorld.toArray(), cam: camera.position.toArray(), fov: (camera as THREE.PerspectiveCamera).fov, canvas: [size.width, size.height],
+      };
+    }
   });
 
   return (
