@@ -20,9 +20,9 @@ const BottleJourney = lazy(() =>
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Riya Sheikh №001 — Eau de Parfum | Maison Sheikh" },
-      { name: "description", content: "An olfactive study in shadow and gold. Discover Riya Sheikh №001, a cinematic eau de parfum from Maison Sheikh." },
-      { property: "og:title", content: "Riya Sheikh №001 — Maison Sheikh" },
+      { title: "Riya Sheikh — Eau de Parfum" },
+      { name: "description", content: "An olfactive study in shadow and gold. Discover Riya Sheikh, a cinematic eau de parfum." },
+      { property: "og:title", content: "Riya Sheikh — Eau de Parfum" },
       { property: "og:description", content: "A cinematic eau de parfum. Oud, amber, and quiet obsession." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -96,7 +96,7 @@ function Hero() {
           transition={{ duration: 1.6, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="text-[10px] uppercase text-accent"
         >
-          Chapter 001 — Nuit d'Onyx
+          Riya Sheikh — Eau de Parfum
         </motion.div>
         <motion.h1
           initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
@@ -118,7 +118,7 @@ function Hero() {
           transition={{ duration: 1, delay: 1.5 }}
           className="mt-12 inline-flex items-center gap-3 border-b border-accent px-1 pb-2 text-[11px] uppercase tracking-[0.4em] text-accent transition hover:gap-5"
         >
-          Enter the Maison <span>→</span>
+          Discover the Fragrance <span>→</span>
         </motion.a>
       </motion.div>
     </section>
@@ -211,7 +211,7 @@ function Showcase() {
               transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
               className="max-w-md"
             >
-              <div className="text-[10px] uppercase tracking-[0.5em] text-accent">The Object</div>
+              <div className="text-[10px] uppercase tracking-[0.5em] text-accent">The Flacon</div>
               <h2 className="mt-6 font-display text-4xl leading-tight sm:text-5xl md:text-6xl">
                 Hand-cut in Grasse. Silent as ink.
               </h2>
@@ -306,7 +306,7 @@ function Footer() {
   return (
     <footer className="border-t border-border px-5 py-12 sm:px-6 sm:py-16 md:px-16">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 text-center sm:gap-8 md:flex-row md:text-left">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground sm:tracking-[0.4em]">© Maison Sheikh — Paris · Grasse</div>
+        <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground sm:tracking-[0.4em]">© Riya Sheikh — Paris · Grasse</div>
         <div className="flex flex-wrap justify-center gap-4 text-[11px] uppercase tracking-[0.3em] sm:gap-6">
           {["Instagram", "Journal", "Contact"].map((l) => (
             <a key={l} href="#" className="opacity-60 transition hover:opacity-100 hover:text-accent">{l}</a>
