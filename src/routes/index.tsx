@@ -20,9 +20,9 @@ const BottleJourney = lazy(() =>
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Riya Sheikh №001 — Eau de Parfum | Maison Sheikh" },
-      { name: "description", content: "An olfactive study in shadow and gold. Discover Riya Sheikh №001, a cinematic eau de parfum from Maison Sheikh." },
-      { property: "og:title", content: "Riya Sheikh №001 — Maison Sheikh" },
+      { title: "Riya Sheikh — Eau de Parfum" },
+      { name: "description", content: "An olfactive study in shadow and gold. Discover Riya Sheikh, a cinematic eau de parfum." },
+      { property: "og:title", content: "Riya Sheikh — Eau de Parfum" },
       { property: "og:description", content: "A cinematic eau de parfum. Oud, amber, and quiet obsession." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
